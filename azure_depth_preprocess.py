@@ -6,6 +6,11 @@ import time
 import numpy as np
 import cv2
 from typing import Optional, Tuple
+from open3d_icp import full_registration
+
+voxel_size = 0.05
+max_correspondence_distance_coarse = voxel_size * 15
+max_correspondence_distance_fine = voxel_size * 1.5
 
 def colorize(
     image: np.ndarray,
@@ -40,6 +45,7 @@ if __name__ == "__main__":
     assert k4a.whitebalance == 4510
 
     idx = 0
+    depth_list = []
     pcds = []
     icp_idx = 0
 
@@ -50,7 +56,7 @@ if __name__ == "__main__":
     """
     while True:
         idx += 1
-        if idx == 36:
+        if idx > 6:
             break
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
@@ -66,10 +72,14 @@ if __name__ == "__main__":
         output_depth = align_depth.copy()
         output_depth = output_depth.astype(np.float32)
         output_depth /= 255
+        
+        depth_list.append(output_depth)
 
         cv2.imshow('test', align_depth)
-        if cv2.waitKey(0) == ord('q'): # q를 누르면 종료   
+        if cv2.waitKey(1000) == ord('q'): # q를 누르면 종료   
             break
+    
+    cv2.destroyAllWindows()
 
     # Define the intrinsic parameters of the depth camera
     intrinsic_matrix = k4a._calibration.get_camera_matrix(pyk4a.CalibrationType.DEPTH)
@@ -85,27 +95,58 @@ if __name__ == "__main__":
     fy = intrinsic_matrix[1, 1]
     cx = intrinsic_matrix[0, 2]
     cy = intrinsic_matrix[1, 2]
-
-    # Load the aligned depth image
-    depth_image = output_depth
-
-    # Calculate the 3D coordinates of each pixel
-    pcd = np.zeros((depth_image.shape[0], depth_image.shape[1], 3), dtype=np.float32)
-    for v in range(depth_image.shape[0]):
-        for u in range(depth_image.shape[1]):
-            depth = depth_image[v, u]
-            x = (u - cx) * depth / fx
-            y = (v - cy) * depth / fy
-            z = depth
-            pcd[v, u] = np.array([x, y, z], dtype=np.float32)
     
-    
-    pcd *= 1000
-    pcd = pcd.astype(np.int16)
-    print(pcd.shape)
-    raw_pcd = np.reshape(pcd, [-1, 3])
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(raw_pcd)
-    pcd.voxel_down_sample(0.02)
 
-    o3d.visualization.draw_geometries([pcd])
+    for depth_idx in range(len(depth_list)):
+        print('Convert depth to pcs. Try index = {0}'.format(depth_idx))
+        # Load the aligned depth image
+        depth_image = depth_list[depth_idx]
+
+        # Calculate the 3D coordinates of each pixel
+        raw_pcd = np.zeros((depth_image.shape[0], depth_image.shape[1], 3), dtype=np.float32)
+        for v in range(depth_image.shape[0]):
+            for u in range(depth_image.shape[1]):
+                depth = depth_image[v, u]
+                x = (u - cx) * depth / fx
+                y = (v - cy) * depth / fy
+                z = depth
+                raw_pcd[v, u] = np.array([x, y, z], dtype=np.float32)
+        
+        raw_pcd = np.reshape(raw_pcd, [-1, 3])
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(raw_pcd)
+        # pcd.voxel_down_sample(voxel_size)
+        pcds.append(pcd)
+
+    # Align the point clouds using ICP
+    calc_pcds = []
+    source = pcds[0]
+    source.estimate_normals()
+    calc_pcds.append(source)
+    
+    for target in pcds[1:]:
+        icp_idx += 1
+        print('Calculate ICP. Try index = {0}'.format(icp_idx))
+        target.estimate_normals()
+        # ICP
+        result = o3d.pipelines.registration.registration_icp(
+            source, target, 0.02, np.identity(4),
+             o3d.pipelines.registration.TransformationEstimationPointToPoint())
+
+        target.transform(result.transformation)
+        calc_pcds.append(target)
+        # print('result => {0}'.format(result))
+
+    # Merge the point clouds
+    merged_pcd = o3d.geometry.PointCloud()
+    for calc_pcd in calc_pcds:
+        merged_pcd += calc_pcd
+
+    # Downsample the point cloud
+    downpcd = merged_pcd.voxel_down_sample(voxel_size=voxel_size)
+
+    # Create the mesh
+    mesh, density = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(downpcd, depth=8)
+
+    # Visualize the mesh
+    o3d.visualization.draw_geometries([mesh])
