@@ -6,9 +6,9 @@ import time
 import numpy as np
 import cv2
 from typing import Optional, Tuple
-from open3d_icp import full_registration
+from open3d_multiway_registration import full_registration
 
-voxel_size = 0.05
+voxel_size = 0.5
 max_correspondence_distance_coarse = voxel_size * 15
 max_correspondence_distance_fine = voxel_size * 1.5
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     """
     while True:
         idx += 1
-        if idx > 6:
+        if idx > 5:
             break
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         depth_list.append(output_depth)
 
         cv2.imshow('test', align_depth)
-        if cv2.waitKey(1000) == ord('q'): # q를 누르면 종료   
+        if cv2.waitKey(1500) == ord('q'): # q를 누르면 종료   
             break
     
     cv2.destroyAllWindows()
@@ -112,28 +112,34 @@ if __name__ == "__main__":
                 z = depth
                 raw_pcd[v, u] = np.array([x, y, z], dtype=np.float32)
         
+        # plt.imshow(raw_pcd)
+        # plt.show()
+        
         raw_pcd = np.reshape(raw_pcd, [-1, 3])
+    
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(raw_pcd)
-        # pcd.voxel_down_sample(voxel_size)
+
         pcds.append(pcd)
 
     # Align the point clouds using ICP
     calc_pcds = []
     source = pcds[0]
     source.estimate_normals()
-    calc_pcds.append(source)
+    calc_pcds.append(pcds[0])
     
     for target in pcds[1:]:
         icp_idx += 1
         print('Calculate ICP. Try index = {0}'.format(icp_idx))
+        _pcd = target
         target.estimate_normals()
         # ICP
         result = o3d.pipelines.registration.registration_icp(
-            source, target, 0.02, np.identity(4),
-             o3d.pipelines.registration.TransformationEstimationPointToPoint())
+            source, target, max_correspondence_distance_coarse, np.identity(4),
+             o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+             )
 
-        target.transform(result.transformation)
+        _pcd.transform(result.transformation)
         calc_pcds.append(target)
         # print('result => {0}'.format(result))
 
