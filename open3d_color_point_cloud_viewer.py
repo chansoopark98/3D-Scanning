@@ -30,22 +30,28 @@ if __name__ == "__main__":
 
     capture = k4a.get_capture()
     rgb = capture.color
-    depth = capture.depth
     raw_pcd = capture.transformed_depth_point_cloud
 
     rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+    rgb = rgb[:, :, :3].astype(np.float32) / 255
     
-    test = rgb[:, :, :3].astype(np.float32) / 255
-    
-    print(test.dtype)
     with o3d.utility.VerbosityContextManager(
         o3d.utility.VerbosityLevel.Debug) as cm:
 
         raw_pcd = np.reshape(raw_pcd, [-1, 3])
-        test = np.reshape(test, [-1, 3])
+        rgb = np.reshape(rgb, [-1, 3])
+
+        max_range_mask = np.where(raw_pcd[:, 2]<600)
+        min_range_mask = np.where(raw_pcd[:, 2]>300)
+
+        raw_pcd = raw_pcd[max_range_mask]
+        rgb = rgb[max_range_mask]
+        raw_pcd = raw_pcd[min_range_mask]
+        rgb = rgb[min_range_mask]
+
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(raw_pcd)
-        pcd.colors = o3d.utility.Vector3dVector(test) 
+        pcd.colors = o3d.utility.Vector3dVector(rgb)
 
         # Visualize the result
         o3d.visualization.draw_geometries([pcd])

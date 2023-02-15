@@ -5,11 +5,13 @@ import open3d as o3d
 import time
 import numpy as np
 import copy
+import cv2
 
-voxel_size = 0.05
-max_correspondence_distance_coarse = voxel_size * 15
-max_correspondence_distance_fine = voxel_size * 1.5
-max_iterations = 5
+voxel_size = 0.02
+max_correspondence_distance_coarse = 1000
+max_correspondence_distance_fine = 10
+max_iterations = 500
+
 
 def pairwise_registration(source, target):
     print("Apply point-to-plane ICP")
@@ -71,7 +73,7 @@ if __name__ == "__main__":
         Config(
             color_resolution=pyk4a.ColorResolution.RES_720P,
             depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
-            synchronized_images_only=False
+            synchronized_images_only=True
         )
     )
     k4a.start()
@@ -87,18 +89,28 @@ if __name__ == "__main__":
     
     while True:
         idx += 1
-        if idx == 4:
+        if idx == 30:
             break
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
-        raw_pcd = capture.depth_point_cloud
+        rgb = capture.color
+        raw_pcd = capture.transformed_depth_point_cloud
+
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+        rgb = rgb[:, :, :3].astype(np.float32) / 255
+        
         raw_pcd = np.reshape(raw_pcd, [-1, 3])
+        rgb = np.reshape(rgb, [-1, 3])
+
+        max_range_mask = np.where(np.logical_and(raw_pcd[:, 2]<600, raw_pcd[:, 2]>400))
+        
+        raw_pcd = raw_pcd[max_range_mask]
+        rgb = rgb[max_range_mask]
+        
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(raw_pcd)
-        pcd.voxel_down_sample(voxel_size)
-        time.sleep(2)
-        plt.imshow(raw_pcd)
-        plt.show()
+        pcd.colors = o3d.utility.Vector3dVector(rgb)
+        time.sleep(1)
         icp_pcds.append(pcd)
 
     raw_pcds = copy.deepcopy(icp_pcds)

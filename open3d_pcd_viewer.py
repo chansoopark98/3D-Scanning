@@ -38,7 +38,7 @@ if __name__ == "__main__":
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
         raw_pcd = capture.depth_point_cloud
-        
+        rgb = capture.color
         
         
         
