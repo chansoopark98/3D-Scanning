@@ -6,60 +6,76 @@ import time
 import numpy as np
 import copy
 import cv2
+from modern_robotics import *
 
-voxel_size = 0.02
-max_correspondence_distance_coarse = 1000
-max_correspondence_distance_fine = 10
-max_iterations = 500
 
-def calc_turntable_matrix(current_time):
-    # 턴테이블 25초간 회전
-    rotation_time = 24
-    # # Define the rotation time and velocity of the turntable
-    angular_velocity = 2 * np.pi / rotation_time  # in radians per second
-
-    print(angular_velocity)
-
-    # # Calculate the angle of rotation based on the rotation time and angular velocity
-    angle = angular_velocity * current_time
-    
-    print(angle)
-
+def calc_turntable_matrix(time_index, total_time):
+    angle_velocity = 2 * np.pi / total_time
+    angle = angle_velocity * time_index
+    angle = 1.57 * time_index
     # Create a rotation matrix that describes the rotation of the turntable
-    transformation_matrix = np.array([
+    rotation_matrix = np.array([
         [np.cos(angle), 0, np.sin(angle), 0],
         [0, 1, 0, 0],
         [-np.sin(angle), 0, np.cos(angle), 0],
         [0, 0, 0, 1]])
     
 
-    # Define the diameter of the turntable
-    diameter = 0.8  # in meters
+    # # Set the translation component of the transformation matrix to the position of the turntable
+    # translation_vector = np.array([0, 0, 0])  # replace with the position of the turntable
 
-    # Define the distance between the camera and the center of the turntable
-    distance = 0.42  # in meters
+    translation_matrix = np.eye(4)
+    translation_matrix[:3, 3] = translation_vector
 
-    # Calculate the horizontal and vertical displacements of the turntable
-    horizontal_displacement = diameter / 2 * np.cos(angle)
-    vertical_displacement = diameter / 2 * np.sin(angle)
-
-    # Calculate the x, y, and z coordinates of the center of the turntable in the coordinate system of the point cloud
-    x = distance * np.sin(np.arccos(horizontal_displacement / distance))
-    y = distance * np.sin(np.arccos(vertical_displacement / distance))
-    z = distance * np.cos(np.arccos(horizontal_displacement / distance)) * np.cos(np.arccos(vertical_displacement / distance))
-
-    # Create the translation vector
-    # transformation_matrix = np.identity(4)
-    translation_vector = np.array([x, y, z])
-    # transformation_matrix[:3, 3] = translation_vector
-
-    # transformation_matrix = np.dot(transformation_matrix, rotation_matrix)
-
-
+    # Combine the rotation and translation matrices to create the transformation matrix
+    transformation_matrix = np.dot(translation_matrix, rotation_matrix)
 
     print('matrix', transformation_matrix)
     return transformation_matrix
 
+def cal_angle(pl_norm, R_dir):
+    angle_in_radians = \
+        np.arccos(
+            np.abs(pl_norm.x*R_dir[0]+ pl_norm.y*R_dir[1] + pl_norm.z*R_dir[2])
+            )
+
+    return angle_in_radians
+
+
+def register_pcds(target, source):
+    icp_max_distance = 0.02
+    source_temp = copy.deepcopy(source)
+    target_temp = copy.deepcopy(target)
+    
+    source_temp.voxel_down_sample(0.004)
+    target_temp.voxel_down_sample(0.004)
+
+    source_temp.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+        radius=0.1, max_nn=30))
+    target_temp.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+        radius=0.1, max_nn=30))
+
+    # source_temp.estimate_normals()
+    # target_temp.estimate_normals()
+
+    current_transformation = np.identity(4)
+    # use Point-to-plane ICP registeration to obtain initial pose guess
+
+    result_icp_p2l = o3d.pipelines.registration.registration_icp(
+                source_temp, target_temp, icp_max_distance, current_transformation,
+                o3d.pipelines.registration.TransformationEstimationPointToPlane())
+
+    print("----------------")
+    print("initial guess from Point-to-plane ICP registeration")
+    print(result_icp_p2l)
+    print(result_icp_p2l.transformation)
+
+    p2l_init_trans_guess = result_icp_p2l.transformation
+    print("----------------")
+
+    result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, 0.01,
+                p2l_init_trans_guess, o3d.pipelines.registration.TransformationEstimationPointToPlane())
+    return result_icp.transformation
 
 
 if __name__ == "__main__":
@@ -81,11 +97,12 @@ if __name__ == "__main__":
 
     idx = 0
     pcds = []
-    capture_idx = 4
-    
+    capture_idx = 2
+
     start_time = time.time()
     while True:
         idx += 1
+        # if idx == capture_idx + 1:
         if idx == capture_idx + 1:
             break
         print('capture idx {0}'.format(idx))
@@ -99,12 +116,13 @@ if __name__ == "__main__":
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.float32) / 255
         
+        # plt.imshow(raw_pcd/ 1000)
+        # plt.show()
+
         raw_pcd = np.reshape(raw_pcd, [-1, 3])
         rgb = np.reshape(rgb, [-1, 3])
 
-        max_range_mask = np.where(np.logical_and(raw_pcd[:, 2]<700, raw_pcd[:, 2]>400))
-        # max_range_mask = np.where(raw_pcd[:, 2]<700)
-        
+        max_range_mask = np.where(np.logical_and(raw_pcd[:, 2]<550, raw_pcd[:, 2]>430))
         raw_pcd = raw_pcd[max_range_mask]
         rgb = rgb[max_range_mask]
         
@@ -112,59 +130,68 @@ if __name__ == "__main__":
         pcd.points = o3d.utility.Vector3dVector(raw_pcd)
         pcd.colors = o3d.utility.Vector3dVector(rgb)
 
+        # Move point cloud to new origin coordinate
+        # pcd.translate(translation_vector)
+
+        # Compute mean distance of points from origin
+        distances = np.sqrt(np.sum(np.square(np.asarray(pcd.points)), axis=1))
+        mean_distance = np.mean(distances)
+
+        # Normalize point cloud
+        pcd.scale(1 / mean_distance, center=pcd.get_center())
+        pcd.translate(-pcd.get_center())
+
         # Get current point cloud center
         center = pcd.get_center()
 
         # Set new origin coordinate
-        new_origin = [1, 1, 1]
+        new_origin = [0, 0, 0]
 
         # Calculate translation vector to move point cloud to new origin coordinate
         translation_vector = np.subtract(new_origin, center)
-
-        # Move point cloud to new origin coordinate
-        pcd.translate(translation_vector)
-
-        # if idx >= 2:
-            
-        trans_matrix = calc_turntable_matrix(float(idx-1))
-        pcd.transform(trans_matrix)
-        pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
         
+        # pcd.translate(translation_vector)
+        
+        trans_matrix = calc_turntable_matrix(float(idx-1), capture_idx)
+        pcd.transform(trans_matrix)
 
+        # pcd = pcd.voxel_down_sample(voxel_size=0.05)
+        
         time.sleep(1)
         pcds.append(pcd)
 
     # Visualize the merged point cloud
+    # Create coordinate system geometry
+    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+        size=15, origin=[0, 0, 0])
+        
     o3d.visualization.draw_geometries(pcds)
 
-    from open3d_multiway_registration import full_registration
+    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+        print('포인트 클라우드 정합 시작')
+        
+        # 변수 초기화
+        detectTransLoop = np.identity(4)
+        posWorldTrans = np.identity(4)
 
-    with o3d.utility.VerbosityContextManager(
-        o3d.utility.VerbosityLevel.Debug) as cm:
-        pose_graph = full_registration(pcds,
-                                    max_correspondence_distance_coarse,
-                                    max_correspondence_distance_fine)
-        print(pose_graph)
-        # pose_graph optimization
-        option = o3d.pipelines.registration.GlobalOptimizationOption(
-            max_correspondence_distance=max_correspondence_distance_fine,
-            edge_prune_threshold=0.25,
-            reference_node=0)
-        o3d.pipelines.registration.global_optimization(
-            pose_graph,
-            o3d.pipelines.registration.GlobalOptimizationLevenbergMarquardt(),
-            o3d.pipelines.registration.GlobalOptimizationConvergenceCriteria(),
-            option)
+        # cloud_base (정합시 기준이 되는 포인트 클라우드)
+        cloud_base = pcds[0]
+        target = copy.deepcopy(cloud_base)
+        source_pcds = pcds[1:]
 
+        for source in source_pcds:
+            posLocalTrans = register_pcds(target=target, source=source)
 
-    pcd_combined = o3d.geometry.PointCloud()
-    for point_id in range(len(pcds)):
-        pcds[point_id].transform(pose_graph.nodes[point_id].pose)
-        pcd_combined += pcds[point_id]
-    pcd_combined_down = pcd_combined.voxel_down_sample(voxel_size=voxel_size)
-    o3d.io.write_point_cloud("multiway_registration.pcd", pcd_combined_down)
-    o3d.visualization.draw_geometries([pcd_combined_down],
-                                    zoom=0.3412,
-                                    front=[0.4257, -0.2125, -0.8795],
-                                    lookat=[2.6172, 2.0475, 1.532],
-                                    up=[-0.0694, -0.9768, 0.2024])
+            detectTransLoop = np.dot(posLocalTrans, detectTransLoop)
+            posWorldTrans =  np.dot(posWorldTrans, posLocalTrans)
+
+            # update latest cloud
+            target = copy.deepcopy(source)
+            source.transform(posWorldTrans)
+            cloud_base = cloud_base + source
+
+            # downsampling
+            cloud_base.voxel_down_sample(0.001)
+
+        # Visualize the merged point cloud
+        o3d.visualization.draw_geometries([cloud_base])
