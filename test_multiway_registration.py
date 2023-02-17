@@ -105,7 +105,6 @@ if __name__ == "__main__":
         # pcd.voxel_down_sample(voxel_size)
         
         time.sleep(1.5)
-    
         pcds.append(pcd)
     
     # Check before ICP
