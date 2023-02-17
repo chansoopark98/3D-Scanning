@@ -46,7 +46,8 @@ def calc_turntable_matrix(time_index, total_time):
     translation_matrix[:3, 3] = translation_vector
 
     # # Combine the rotation and translation matrices to create the transformation matrix
-    transformation_matrix = np.dot(translation_matrix, rotation_matrix)
+    # transformation_matrix = np.dot(translation_matrix, rotation_matrix)
+    transformation_matrix = rotation_matrix
 
     print('matrix', transformation_matrix)
     return transformation_matrix
@@ -115,26 +116,28 @@ if __name__ == "__main__":
 
     idx = 0
     pcds = []
-    capture_idx = 2
+    capture_idx = 24
 
     # Capture
     capture = k4a.get_capture()
     rgb = capture.color
 
-    # Select ROI
+    # ROI 선택
     x, y, w, h = cv2.selectROI(rgb)
 
-    # Create mask
+    # 포인트 클라우드 ROI 마스크 생성
     mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
     mask[y:y+h, x:x+w] = 1
     mask = mask.astype(np.int16)
+    indicies = np.where(mask==1)
     mask = np.expand_dims(mask, axis=-1)
     
     cv2.destroyAllWindows()
 
     time.sleep(1)
 
-    start_time = time.time()
+    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5, origin=[0, 0, -1])
+
     while True:
         idx += 1
         # if idx == capture_idx + 1:
@@ -144,14 +147,12 @@ if __name__ == "__main__":
         capture = k4a.get_capture()
         rgb = capture.color
         raw_pcd = capture.transformed_depth_point_cloud
-
-        current_time = time.time()
-
         
-        
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+        rgb = rgb[:, :, :3].astype(np.float32) / 255
+
         raw_pcd = raw_pcd * mask
-        # plt.imshow(raw_pcd/ 1000)
-        # plt.show()
+        rgb = rgb * mask
 
         raw_pcd = np.reshape(raw_pcd, [-1, 3])
         rgb = np.reshape(rgb, [-1, 3])
@@ -180,43 +181,47 @@ if __name__ == "__main__":
         trans_matrix = calc_turntable_matrix(float(idx-1), capture_idx)
         pcd.transform(trans_matrix)
 
+
         # pcd = pcd.voxel_down_sample(voxel_size=0.05)
-        
+        # o3d.visualization.draw_geometries([pcd, coord_frame])
+
         time.sleep(1)
         pcds.append(pcd)
 
     # Visualize the merged point cloud
     # Create coordinate system geometry
-    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
-        size=15, origin=[0, 0, 0])
+
+    test_pcds = copy.deepcopy(pcds)
+    test_pcds.append(coord_frame)
+    # pcd = pcd.voxel_down_sample(voxel_size=0.05)
+    o3d.visualization.draw_geometries(test_pcds)
+    
+
+    # with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+    #     print('포인트 클라우드 정합 시작')
         
-    o3d.visualization.draw_geometries(pcds)
+    #     # 변수 초기화
+    #     detectTransLoop = np.identity(4)
+    #     posWorldTrans = np.identity(4)
 
-    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
-        print('포인트 클라우드 정합 시작')
-        
-        # 변수 초기화
-        detectTransLoop = np.identity(4)
-        posWorldTrans = np.identity(4)
+    #     # cloud_base (정합시 기준이 되는 포인트 클라우드)
+    #     cloud_base = pcds[0]
+    #     target = copy.deepcopy(cloud_base)
+    #     source_pcds = pcds[1:]
 
-        # cloud_base (정합시 기준이 되는 포인트 클라우드)
-        cloud_base = pcds[0]
-        target = copy.deepcopy(cloud_base)
-        source_pcds = pcds[1:]
+    #     for source in source_pcds:
+    #         posLocalTrans = register_pcds(target=target, source=source)
 
-        for source in source_pcds:
-            posLocalTrans = register_pcds(target=target, source=source)
+    #         detectTransLoop = np.dot(posLocalTrans, detectTransLoop)
+    #         posWorldTrans =  np.dot(posWorldTrans, posLocalTrans)
 
-            detectTransLoop = np.dot(posLocalTrans, detectTransLoop)
-            posWorldTrans =  np.dot(posWorldTrans, posLocalTrans)
+    #         # update latest cloud
+    #         target = copy.deepcopy(source)
+    #         source.transform(posWorldTrans)
+    #         cloud_base = cloud_base + source
 
-            # update latest cloud
-            target = copy.deepcopy(source)
-            source.transform(posWorldTrans)
-            cloud_base = cloud_base + source
+    #         # downsampling
+    #         cloud_base.voxel_down_sample(0.001)
 
-            # downsampling
-            cloud_base.voxel_down_sample(0.001)
-
-        # Visualize the merged point cloud
-        o3d.visualization.draw_geometries([cloud_base])
+    #     # Visualize the merged point cloud
+    #     o3d.visualization.draw_geometries([cloud_base])
