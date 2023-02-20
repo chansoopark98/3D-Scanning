@@ -69,7 +69,7 @@ if __name__ == "__main__":
         raw_pcd = np.reshape(raw_pcd, [-1, 3])
         rgb = np.reshape(rgb, [-1, 3])
 
-        max_range_mask = np.where(np.logical_and(raw_pcd[:, 2]<550, raw_pcd[:, 2]>430))
+        max_range_mask = np.where(np.logical_and(raw_pcd[:, 2]<550, raw_pcd[:, 2]>400))
         raw_pcd = raw_pcd[max_range_mask]
         rgb = rgb[max_range_mask]
         
@@ -81,9 +81,9 @@ if __name__ == "__main__":
         # pcd.translate(translation_vector)
 
         # Compute mean distance of points from origin
-        distances = np.sqrt(np.sum(np.square(np.asarray(pcd.points)), axis=1))
-        mean_distance = np.mean(distances)
-        pcd.scale(1 / mean_distance, center=pcd.get_center())
+        # distances = np.sqrt(np.sum(np.square(np.asarray(pcd.points)), axis=1))
+        # mean_distance = np.mean(distances)
+        # pcd.scale(1 / mean_distance, center=pcd.get_center())
         
         center = pcd.get_center()
         new_origin = [0, 0, 0]
@@ -97,4 +97,4 @@ if __name__ == "__main__":
     for i in range(len(pcd_list)):
         print('save_pointcloud {0}'.format(i))
         # Save point cloud
-        o3d.io.write_point_cloud('./test_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd_list[i])
+        o3d.io.write_point_cloud('./4way_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd_list[i])

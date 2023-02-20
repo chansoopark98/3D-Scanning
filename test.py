@@ -2,78 +2,62 @@ import open3d as o3d
 import numpy as np
 import copy
 
+coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+    size=0.05, origin=[0, 0, 0])
 
-# Camera parameters
-camera_height = 0.05  # 5 cm
-camera_radius = 0.42  # 42 cm
+# Calculate the rotation angle for each point cloud (assuming 24 seconds for full rotation)
+theta_0 = 0
+theta_90 = 90 * np.pi / 180
+theta_180 = 180 * np.pi / 180
+theta_270 = 270 * np.pi / 180
 
-# Turntable parameters
-turntable_radius = 0.4  # 80 cm / 2
+def get_rotation_matrix_y(theta):
+    c = np.cos(theta)
+    s = np.sin(theta)
+    R = np.array([[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]])
+    return R
 
-# Capture parameters
-num_captures = 24
-capture_interval = 1.0  # 1 second
+# Apply transformations to register pcd90, pcd180, and pcd270 to pcd0
+T_0to90 = get_rotation_matrix_y(theta_90 - theta_0)
+T_0to180 = get_rotation_matrix_y(theta_180 - theta_0)
+T_0to270 = get_rotation_matrix_y(theta_270 - theta_0)
 
-angular_velocity = 360.0 / (num_captures * capture_interval)  # degrees per second
-
-angles = np.linspace(0, 360, num_captures, endpoint=False)
-angles -= (angles[1] - angles[0]) / 2  # center the angles
-
-points = []
-for angle in angles:
-    # Calculate the camera position
-    x = camera_radius * np.sin(np.radians(angle))
-    y = camera_height
-    z = camera_radius * np.cos(np.radians(angle))
-
-    # Add the camera position to the list of points
-    points.append([x, y, z])
-
+rotation_matrix = [T_0to90, T_0to180, T_0to270]
 
 # Load point clouds
 pointclouds = []
-for i in range(24):
-    pcd = o3d.io.read_point_cloud(f"./test_pointclouds/test_pointcloud_{i}.pcd")
-
-    # Transform the point cloud to the global coordinate system
-    pcd.transform(np.array(
-        [[1, 0, 0, points[i][0]],
-         [0, 1, 0, points[i][1]],
-         [0, 0, 1, points[i][2]],
-         [0, 0, 0, 1]]
-    ))
-
-    # Add the transformed point cloud to the list
+for i in range(4):
+    pcd = o3d.io.read_point_cloud(f"./4way_pointclouds/test_pointcloud_{i}.pcd")
     pointclouds.append(pcd)
+
+# Define the camera-to-object distance and base distance
+distance = 0.42  # distance in meters
+base_distance = 0.42  # distance when point cloud at 0 degrees was captured
+
+# Calculate the depth adjustment factor
+depth_adjustment = distance / base_distance
 
 
 with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
 
-    # Visualize the merged point cloud
-    o3d.visualization.draw_geometries(pointclouds)
+    output_pcds = [coord_frame]
+    output_pcds.append(pointclouds[0])
+    for pcd_idx in range(len(pointclouds[1:])):
+        new_pcd = pointclouds[pcd_idx+1]
+        new_pcd.transform(rotation_matrix[pcd_idx])
 
-    # # Set the ICP parameters (you can tweak these as needed)
-    # icp_max_distance = 0.05
-    # icp_max_iterations = 200
-    # icp_init_guess = o3d.geometry.TransformationMatrix.identity(4)
+        if pcd_idx == 1:
+                # Create a transformation matrix that flips the z-axis
+            flip_transform = np.array([[1, 0, 0, 0],
+                                    [0, 1, 0, 0],
+                                    [0, 0, -1, 0],
+                                    [0, 0, 0, 1]])
 
-    # # Register the point clouds using ICP
-    # global_registration = o3d.pipelines.registration.registration_icp(
-    #     source=pointclouds[0],
-    #     target=pointclouds[1],
-    #     max_correspondence_distance=icp_max_distance,
-    #     init=icp_init_guess,
-    #     criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
-    #         relative_fitness=1e-6,
-    #         relative_rmse=1e-6,
-    #         max_iteration=icp_max_iterations
-    #     )
-    # )
+            # Apply the transformation matrix to the point cloud
+            # new_pcd.transform(flip_transform)
+        output_pcds.append(new_pcd)
 
-    # for i in range(1, num_captures - 1):
-    #     # Transform the source point cloud using the previous transformation
-    #     source_transformed = pointclouds[i].transform(global_registration.transformation)
-
-    #     # Register the transformed source point cloud to the target point cloud
-    #     icp_result = o3d.pipelines.registration.registration_icp(
-    #         source=source
+        # Visualize the merged point cloud
+        o3d.visualization.draw_geometries([new_pcd, coord_frame])
+        o3d.visualization.draw_geometries(output_pcds)
+    o3d.visualization.draw_geometries(output_pcds)
