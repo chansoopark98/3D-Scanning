@@ -1,63 +1,95 @@
 import open3d as o3d
-import numpy as np
-import copy
+import copy 
+from modern_robotics import *
 
-coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
-    size=0.05, origin=[0, 0, 0])
+down_voxel_size = 0.02
+icp_distance = down_voxel_size * 15
+result_icp_distance = down_voxel_size * 1.5
 
-# Calculate the rotation angle for each point cloud (assuming 24 seconds for full rotation)
-theta_0 = 0
-theta_90 = 90 * np.pi / 180
-theta_180 = 180 * np.pi / 180
-theta_270 = 270 * np.pi / 180
+def cal_angle(pl_norm, R_dir):
+    angle_in_radians = \
+        np.arccos(
+            np.abs(pl_norm.x*R_dir[0]+ pl_norm.y*R_dir[1] + pl_norm.z*R_dir[2])
+            )
 
-def get_rotation_matrix_y(theta):
-    c = np.cos(theta)
-    s = np.sin(theta)
-    R = np.array([[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]])
-    return R
+    return angle_in_radians
 
-# Apply transformations to register pcd90, pcd180, and pcd270 to pcd0
-T_0to90 = get_rotation_matrix_y(theta_90 - theta_0)
-T_0to180 = get_rotation_matrix_y(theta_180 - theta_0)
-T_0to270 = get_rotation_matrix_y(theta_270 - theta_0)
+def registerLocalCloud(target, source):
+        source_temp = copy.deepcopy(source)
+        target_temp = copy.deepcopy(target)
 
-rotation_matrix = [T_0to90, T_0to180, T_0to270]
+        source_temp.voxel_down_sample(down_voxel_size)
+        target_temp.voxel_down_sample(down_voxel_size)
 
-# Load point clouds
-pointclouds = []
-for i in range(4):
-    pcd = o3d.io.read_point_cloud(f"./4way_pointclouds/test_pointcloud_{i}.pcd")
-    pointclouds.append(pcd)
+        source_temp.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+            radius=0.1, max_nn=30))
+        target_temp.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+            radius=0.1, max_nn=30))
+        
+        # source_temp.estimate_normals()
+        # target_temp.estimate_normals()
 
-# Define the camera-to-object distance and base distance
-distance = 0.42  # distance in meters
-base_distance = 0.42  # distance when point cloud at 0 degrees was captured
+        
+        current_transformation = np.identity(4)
+        
+        result_icp_p2l = o3d.pipelines.registration.registration_icp(source_temp, target_temp, icp_distance,
+                current_transformation, o3d.pipelines.registration.TransformationEstimationPointToPlane())
 
-# Calculate the depth adjustment factor
-depth_adjustment = distance / base_distance
+        print("----------------")
+        print("initial guess from Point-to-plane ICP registeration")
+        print(result_icp_p2l)
+        print(result_icp_p2l.transformation)
+
+        p2l_init_trans_guess = result_icp_p2l.transformation
+        
+
+        result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, result_icp_distance,
+                p2l_init_trans_guess, o3d.pipelines.registration.TransformationEstimationPointToPlane())
+
+        print("----------------")
+        print("result icp")
+        print(result_icp)
+        print(result_icp.transformation)
+
+        return result_icp.transformation
 
 
-with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+if __name__ == '__main__':
 
-    output_pcds = [coord_frame]
-    output_pcds.append(pointclouds[0])
-    for pcd_idx in range(len(pointclouds[1:])):
-        new_pcd = pointclouds[pcd_idx+1]
-        new_pcd.transform(rotation_matrix[pcd_idx])
+    with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
+        # Load point clouds
+        pcds = []
+        for i in range(48):
+            pcd = o3d.io.read_point_cloud(f"./360degree_pointclouds/test_pointcloud_{i}.pcd")
+            print(np.mean(np.asarray(pcd.points)[:, 2]))
+            pcds.append(pcd)
 
-        if pcd_idx == 1:
-                # Create a transformation matrix that flips the z-axis
-            flip_transform = np.array([[1, 0, 0, 0],
-                                    [0, 1, 0, 0],
-                                    [0, 0, -1, 0],
-                                    [0, 0, 0, 1]])
+        # Visualize the mesh
+        o3d.visualization.draw_geometries(pcds)
 
-            # Apply the transformation matrix to the point cloud
-            # new_pcd.transform(flip_transform)
-        output_pcds.append(new_pcd)
+        cloud_base = pcds[0]
 
-        # Visualize the merged point cloud
-        o3d.visualization.draw_geometries([new_pcd, coord_frame])
-        o3d.visualization.draw_geometries(output_pcds)
-    o3d.visualization.draw_geometries(output_pcds)
+        cloud1 = copy.deepcopy(cloud_base)
+
+        detectTransLoop = np.identity(4)
+        posWorldTrans = np.identity(4)
+
+        for cloud2 in pcds[1:]:
+            posLocalTrans = registerLocalCloud(cloud1, cloud2)
+
+            detectTransLoop = np.dot(posLocalTrans, detectTransLoop)
+
+            posWorldTrans =  np.dot(posWorldTrans, posLocalTrans)
+
+            cloud1 = copy.deepcopy(cloud2)
+            cloud2.transform(posWorldTrans)
+            
+            cloud_base = cloud_base + cloud2
+
+            # downsampling
+            cloud_base.voxel_down_sample(down_voxel_size)
+            
+            
+        
+        # Visualize the mesh
+        o3d.visualization.draw_geometries([cloud_base])

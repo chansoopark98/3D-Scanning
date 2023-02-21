@@ -37,7 +37,7 @@ if __name__ == "__main__":
             break
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
-        raw_depth = capture.depth
+        raw_depth = capture.transformed_depth_point_cloud
         raw_depth = np.where(raw_depth>600, 0, raw_depth)
         raw_depth = np.where(raw_depth<300, 0, raw_depth)
 
@@ -46,8 +46,9 @@ if __name__ == "__main__":
         idx += 1
 
      # Define the intrinsic parameters of the depth camera
-    intrinsic_matrix = k4a._calibration.get_camera_matrix(pyk4a.CalibrationType.DEPTH)
+    intrinsic_matrix = k4a._calibration.get_camera_matrix(pyk4a.CalibrationType.COLOR)
 
+    print(intrinsic_matrix)
     fx = intrinsic_matrix[0, 0]
     fy = intrinsic_matrix[1, 1]
     cx = intrinsic_matrix[0, 2]

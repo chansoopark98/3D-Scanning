@@ -131,39 +131,35 @@ Output:
                + (1 - np.cos(theta)) * np.dot(omgmat,omgmat)
 
 def MatrixLog3(R):
-#Takes R (rotation matrix).
-#Returns the corresponding so(3) representation of exponential coordinates.
-    '''
-Example Input: 
-R = [[0, 0, 1],
-     [1, 0, 0],
-     [0, 1, 0]]
-Output:
-[[          0, -1.20919958,  1.20919958],
- [ 1.20919958,           0, -1.20919958],
- [-1.20919958,  1.20919958,           0]]
-    '''
-    if NearZero(np.linalg.norm(R - np.eye(3))):
-        return np.zeros(3,3)
-    elif NearZero(np.trace(R) + 1):
+    """Computes the matrix logarithm of a rotation matrix
+    :param R: A 3x3 rotation matrix
+    :return: The matrix logarithm of R
+    Example Input:
+        R = np.array([[0, 0, 1],
+                      [1, 0, 0],
+                      [0, 1, 0]])
+    Output:
+        np.array([[          0, -1.20919958,  1.20919958],
+                  [ 1.20919958,           0, -1.20919958],
+                  [-1.20919958,  1.20919958,           0]])
+    """
+    acosinput = (np.trace(R) - 1) / 2.0
+    if acosinput >= 1:
+        return np.zeros((3, 3))
+    elif acosinput <= -1:
         if not NearZero(1 + R[2][2]):
-            omg = (1.0 / sqrt(2 * (1 + R[2][2]))) \
+            omg = (1.0 / np.sqrt(2 * (1 + R[2][2]))) \
                   * np.array([R[0][2], R[1][2], 1 + R[2][2]])
-        elif not NearZero(1 + R[1][1]): 
-            omg = (1.0 / sqrt(2 * (1 + R[1][1]))) \
+        elif not NearZero(1 + R[1][1]):
+            omg = (1.0 / np.sqrt(2 * (1 + R[1][1]))) \
                   * np.array([R[0][1], 1 + R[1][1], R[2][1]])
         else:
-            omg = (1.0 / sqrt(2 * (1 + R[0][0]))) \
+            omg = (1.0 / np.sqrt(2 * (1 + R[0][0]))) \
                   * np.array([1 + R[0][0], R[1][0], R[2][0]])
-        return VecToso3(pi*omg)
+        return VecToso3(np.pi * omg)
     else:
-        acosinput = (np.trace(R) - 1) / 2.0
-        if acosinput > 1:
-            acosinput = 1
-        elif acosinput < -1:
-            acosinput = -1		
-        theta = acos(acosinput)
-        return theta / 2.0 / sin(theta) * (R - np.array(R).T)
+        theta = np.arccos(acosinput)
+        return theta / 2.0 / np.sin(theta) * (R - np.array(R).T)
 
 def RpToTrans (R,p):
 #Takes rotation matrix R and position p. 
@@ -341,35 +337,35 @@ Output:
                      [[0, 0, 0, 1]]]
 
 def MatrixLog6(T):
-#Takes a transformation matrix T in SE(3).
-#Returns the corresponding se(3) representation of exponential coordinates.
-    '''
-Example Input: 
-T = [[1,0,0,0], [0,0,-1,0], [0,1,0,3], [0,0,0,1]]
-Output:
-[1.5707963267948966, 0.0, 0.0, 0.0, 2.3561944901923448, 2.3561944901923457]
-    '''
-    R,p = TransToRp(T)
-    if NearZero(np.linalg.norm(R - np.eye(3))):
-        return np.r_[np.c_[np.zeros((3,3)),
+    """Computes the matrix logarithm of a homogeneous transformation matrix
+    :param R: A matrix in SE3
+    :return: The matrix logarithm of R
+    Example Input:
+        T = np.array([[1, 0,  0, 0],
+                      [0, 0, -1, 0],
+                      [0, 1,  0, 3],
+                      [0, 0,  0, 1]])
+    Output:
+        np.array([[0,          0,           0,           0]
+                  [0,          0, -1.57079633,  2.35619449]
+                  [0, 1.57079633,           0,  2.35619449]
+                  [0,          0,           0,           0]])
+    """
+    R, p = TransToRp(T)
+    omgmat = MatrixLog3(R)
+    if np.array_equal(omgmat, np.zeros((3, 3))):
+        return np.r_[np.c_[np.zeros((3, 3)),
                            [T[0][3], T[1][3], T[2][3]]],
                      [[0, 0, 0, 0]]]
-    else: 
-        acosinput = (np.trace(R) - 1) / 2.0
-        if acosinput > 1:
-            acosinput = 1
-        elif acosinput < -1:
-            acosinput = -1		
-        theta = acos(acosinput)       
-        omgmat = MatrixLog3(R) 
-        return np.r_[np.c_[omgmat, 
-                            np.dot(np.eye(3) - omgmat / 2.0 \
-                            + (1.0 / theta - 1.0 / tan(theta / 2.0) / 2) \
-                                * np.dot(omgmat,omgmat) / theta,[T[0][3], 
-                                                                T[1][3], 
-                                                                T[2][3]])], 
-                        [[0, 0, 0, 0]]]
-
+    else:
+        theta = np.arccos((np.trace(R) - 1) / 2.0)
+        return np.r_[np.c_[omgmat,
+                           np.dot(np.eye(3) - omgmat / 2.0 \
+                           + (1.0 / theta - 1.0 / np.tan(theta / 2.0) / 2) \
+                              * np.dot(omgmat,omgmat) / theta,[T[0][3],
+                                                               T[1][3],
+                                                               T[2][3]])],
+                     [[0, 0, 0, 0]]]
 '''
 *** CHAPTER 4: FORWARD KINEMATICS ***
 '''
