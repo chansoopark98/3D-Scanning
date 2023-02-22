@@ -101,19 +101,21 @@ if __name__ == "__main__":
         rgb_image = rgb_list[i]
         depth_image = depth_list[i]
 
+        # rgb image scaling 
+        rgb_image = rgb_image.astype(np.float32) / 255.
+        rgb_image = o3d.geometry.Image(rgb_image)
+
         # depth image scaling
         depth_image = depth_image.astype(np.float32) / 1000.
-        o3d_depth = o3d.geometry.Image(depth_image)
+        depth_image = o3d.geometry.Image(depth_image)
 
-        # Create a new point cloud from the depth image
-        pcd_from_depth = o3d.geometry.PointCloud.create_from_depth_image(
-            o3d_depth,
-            intrinsic=camera_intrinsics,
-            depth_scale=0.001,
-            depth_trunc=100.0,
-            stride=1,
-            project_valid_depth_only=True
-        )
+        rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_image, depth_image)
+        
+        pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
+
+
+        # # Visualize the mesh
+        # o3d.visualization.draw_geometries([pcd])
 
         # Save point cloud
-        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd_from_depth)
+        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)

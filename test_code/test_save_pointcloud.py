@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 48
+    capture_idx = 2
 
     # Capture
     capture = k4a.get_capture()
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         depth = capture.transformed_depth
     
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
-        rgb = rgb[:, :, :3].astype(np.uint8)
+        rgb = rgb[:, :, :3].astype(np.float32)
 
         depth = depth * mask
         rgb = rgb * np.expand_dims(mask, axis=-1)
@@ -101,19 +101,55 @@ if __name__ == "__main__":
         rgb_image = rgb_list[i]
         depth_image = depth_list[i]
 
-        # depth image scaling
-        depth_image = depth_image.astype(np.float32) / 1000.
-        o3d_depth = o3d.geometry.Image(depth_image)
+        # rgbd image scaling
+        rgb_image = rgb_image
+        depth_image = np.expand_dims(depth_image.astype(np.float32) / 1000., axis=-1)
+
+        
+        print('rgb shape', rgb_image.shape)
+        print('depth_image shape', depth_image.shape)
+        # rgbd_image = np.concatenate([rgb_image, depth_image], axis=-1)
+        
+        # rgb_image = rgb_image.astype(np.uint8)
+        # depth_image = depth_image.astype(np.uint8)
+        print(np.mean(rgb_image))
+        print(np.mean(depth_image))
+
+        rgb_image = o3d.geometry.Image(rgb_image.astype(np.uint16))
+        depth_image = o3d.geometry.Image(depth_image)
 
         # Create a new point cloud from the depth image
         pcd_from_depth = o3d.geometry.PointCloud.create_from_depth_image(
-            o3d_depth,
+            depth_image,
             intrinsic=camera_intrinsics,
             depth_scale=0.001,
             depth_trunc=100.0,
             stride=1,
-            project_valid_depth_only=True
+            project_valid_depth_only=False
         )
 
+        rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_image,
+                                                                        depth_image,
+                                                                        depth_scale=0.001,
+                                                                        depth_trunc=100.0,
+                                                                        convert_rgb_to_intensity=False)
+        
+        color_array = np.asarray(rgbd_image / 255)
+        print(color_array.shape)
+        plt.imshow(color_array)
+        plt.show()
+
+        color_array = np.reshape(color_array, [-1, 3])
+        print(color_array.shape)
+        # pcd_from_depth.colors = 
+
+        
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(np.asarray(pcd_from_depth.points))
+        pcd.colors = o3d.utility.Vector3dVector(color_array)
+
+        # Visualize the mesh
+        o3d.visualization.draw_geometries([pcd])
+
         # Save point cloud
-        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd_from_depth)
+        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)

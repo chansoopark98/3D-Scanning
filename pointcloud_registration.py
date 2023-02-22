@@ -65,7 +65,7 @@ if __name__ == '__main__':
             pcds.append(pcd)
 
         # Visualize the mesh
-        o3d.visualization.draw_geometries(pcds)
+        # o3d.visualization.draw_geometries(pcds)
 
         cloud_base = pcds[0]
 

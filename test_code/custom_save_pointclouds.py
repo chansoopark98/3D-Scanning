@@ -105,15 +105,24 @@ if __name__ == "__main__":
         depth_image = depth_image.astype(np.float32) / 1000.
         o3d_depth = o3d.geometry.Image(depth_image)
 
-        # Create a new point cloud from the depth image
-        pcd_from_depth = o3d.geometry.PointCloud.create_from_depth_image(
-            o3d_depth,
-            intrinsic=camera_intrinsics,
-            depth_scale=0.001,
-            depth_trunc=100.0,
-            stride=1,
-            project_valid_depth_only=True
-        )
+        # Calculate the 3D coordinates of each pixel
+        raw_pcd = np.zeros((depth_image.shape[0], depth_image.shape[1], 3), dtype=np.float32)
+        for v in range(depth_image.shape[0]):
+            for u in range(depth_image.shape[1]):
+                depth = depth_image[v, u]
+                x = (u - cx) * depth / fx
+                y = (v - cy) * depth / fy
+                z = depth / 1000.
+                raw_pcd[v, u] = np.array([x, y, z], dtype=np.float32)
+
+        raw_pcd = np.reshape(raw_pcd, [-1, 3])
+        rgb_point = np.reshape(rgb_image / 255, [-1, 3])
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(raw_pcd)
+        pcd.colors = o3d.utility.Vector3dVector(rgb_point)
+
+        # # Visualize the mesh
+        # o3d.visualization.draw_geometries([pcd])
 
         # Save point cloud
-        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd_from_depth)
+        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)

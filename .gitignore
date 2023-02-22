@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+360degree_pointclouds/*
+4way_pointclouds/*
+
 # C extensions
 *.so
 
