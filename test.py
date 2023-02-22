@@ -2,7 +2,7 @@ import open3d as o3d
 import copy 
 from modern_robotics import *
 
-down_voxel_size = 0.02
+down_voxel_size = 0.1
 icp_distance = down_voxel_size * 15
 result_icp_distance = down_voxel_size * 1.5
 

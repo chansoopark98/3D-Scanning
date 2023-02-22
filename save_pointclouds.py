@@ -87,7 +87,7 @@ if __name__ == "__main__":
         depth = depth * mask
         rgb = rgb * np.expand_dims(mask, axis=-1)
 
-        max_range_mask = np.where(np.logical_and(depth<550, depth>400), 1, 0)
+        max_range_mask = np.where(np.logical_and(depth<710, depth>500), 1, 0)
         depth = depth * max_range_mask
         rgb = rgb * np.expand_dims(max_range_mask, axis=-1)
         print(depth.shape)
