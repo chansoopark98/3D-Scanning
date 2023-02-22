@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 48
+    capture_idx = 24
 
     # Capture
     capture = k4a.get_capture()
@@ -87,14 +87,14 @@ if __name__ == "__main__":
         depth = depth * mask
         rgb = rgb * np.expand_dims(mask, axis=-1)
 
-        max_range_mask = np.where(np.logical_and(depth<710, depth>500), 1, 0)
+        max_range_mask = np.where(np.logical_and(depth<650, depth>400), 1, 0)
         depth = depth * max_range_mask
         rgb = rgb * np.expand_dims(max_range_mask, axis=-1)
         print(depth.shape)
         rgb_list.append(rgb)
         depth_list.append(depth)
 
-        time.sleep(0.5)
+        time.sleep(1)
     
     for i in range(len(depth_list)):
         print('save pointclouds {0}'.format(i))
@@ -116,6 +116,14 @@ if __name__ == "__main__":
 
         # # Visualize the mesh
         # o3d.visualization.draw_geometries([pcd])
+
+        # Statistical outlier removal
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
+                                         std_ratio=2.0)
+
+        # # Visualize the mesh
+        # o3d.visualization.draw_geometries([pcd])
+
 
         # Save point cloud
         o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)

@@ -59,7 +59,7 @@ if __name__ == '__main__':
     with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
         # Load point clouds
         pcds = []
-        for i in range(48):
+        for i in range(24):
             pcd = o3d.io.read_point_cloud(f"./360degree_pointclouds/test_pointcloud_{i}.pcd")
             print(np.mean(np.asarray(pcd.points)[:, 2]))
             pcds.append(pcd)
