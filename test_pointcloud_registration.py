@@ -34,11 +34,11 @@ def registerLocalCloud(target, source):
         
         current_transformation = np.identity(4)
         
-        result_icp_p2l = o3d.pipelines.registration.registration_icp(source_temp, target_temp, icp_distance,
-                current_transformation, o3d.pipelines.registration.TransformationEstimationPointToPlane())
+        # result_icp_p2l = o3d.pipelines.registration.registration_icp(source_temp, target_temp, icp_distance,
+        #         current_transformation, o3d.pipelines.registration.TransformationEstimationPointToPlane())
         
-        # result_icp_p2l = o3d.pipelines.registration.registration_colored_icp(source_temp, target_temp, icp_distance,
-                # current_transformation, o3d.pipelines.registration.TransformationEstimationForColoredICP())
+        result_icp_p2l = o3d.pipelines.registration.registration_colored_icp(source_temp, target_temp, icp_distance,
+                current_transformation, o3d.pipelines.registration.TransformationEstimationForColoredICP())
 
 
         print("----------------")
