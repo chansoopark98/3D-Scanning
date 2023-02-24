@@ -49,13 +49,13 @@ def registerLocalCloud(target, source):
         p2l_init_trans_guess = result_icp_p2l.transformation
         
 
-        result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, result_icp_distance,
-                p2l_init_trans_guess, o3d.pipelines.registration.TransformationEstimationPointToPlane())
+        # result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, result_icp_distance,
+        #         p2l_init_trans_guess, o3d.pipelines.registration.TransformationEstimationPointToPlane())
         
         # print('try result_icp')
-        # result_icp = o3d.pipelines.registration.registration_colored_icp(source_temp, target_temp, result_icp_distance,
-        #         p2l_init_trans_guess,  o3d.pipelines.registration.TransformationEstimationForColoredICP(),
-        #         )
+        result_icp = o3d.pipelines.registration.registration_colored_icp(source_temp, target_temp, result_icp_distance,
+                p2l_init_trans_guess,  o3d.pipelines.registration.TransformationEstimationForColoredICP(),
+                )
 
        
         print("----------------")

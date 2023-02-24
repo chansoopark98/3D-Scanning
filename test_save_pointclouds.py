@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 2
+    capture_idx = 24
 
     # Capture
     capture = k4a.get_capture()
@@ -103,22 +103,22 @@ if __name__ == "__main__":
         depth_image = depth_list[i]
 
         # rgb image scaling 
-        rgb_image = rgb_image
+        rgb_image = rgb_image.astype('uint8')
 
         # convert rgb image to open3d depth map
         rgb_image = o3d.geometry.Image(rgb_image)
 
         # depth image scaling
-        depth_image = depth_image.astype(np.float32)
+        depth_image = depth_image.astype('uint16')
         
 
         # convert depth image to open3d depth map
         depth_image = o3d.geometry.Image(depth_image)
         
+        
         # convert to rgbd image
         rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_image,
                                                                         depth_image,
-                                                                        depth_scale=1000,
                                                                         convert_rgb_to_intensity=False)
 
         test_rgbd_image = np.asarray(rgbd_image)
@@ -129,15 +129,15 @@ if __name__ == "__main__":
         # rgbd image convert to pointcloud
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
 
-        # # Visualize the mesh
+        # Visualize the mesh
         o3d.visualization.draw_geometries([pcd])
 
         # Statistical outlier removal
-        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
-        #                                  std_ratio=3.0)
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
+                                         std_ratio=3.0)
 
-        # # Visualize the mesh
-        # o3d.visualization.draw_geometries([pcd])
+        # Visualize the mesh
+        o3d.visualization.draw_geometries([pcd])
 
 
         # Save point cloud
