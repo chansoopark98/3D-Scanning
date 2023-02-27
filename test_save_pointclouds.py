@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     k4a = PyK4A(
         Config(
-            color_resolution=pyk4a.ColorResolution.RES_720P,
+            color_resolution=pyk4a.ColorResolution.RES_2160P,
             depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
             synchronized_images_only=True
         )
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 24
+    capture_idx = 2
 
     # Capture
     capture = k4a.get_capture()
@@ -129,16 +129,29 @@ if __name__ == "__main__":
         # rgbd image convert to pointcloud
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
 
-        # Visualize the mesh
-        o3d.visualization.draw_geometries([pcd])
+        # o3d.visualization.draw_geometries([pcd])
+        
+        # Statistical outlier removal
+        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
+        #                                  std_ratio=3.0)
+
+        # Perform plane segmentation
+        plane_model, inliers = pcd.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
+
+        # Remove turntable floor from point cloud data
+        pcd = pcd.select_by_index(inliers, invert=True)
+
+        # o3d.visualization.draw_geometries([pcd])
+
 
         # Statistical outlier removal
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
-                                         std_ratio=3.0)
+        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
+        #                                  std_ratio=2.0)
+
+        # o3d.visualization.draw_geometries([pcd])
 
         # Visualize the mesh
-        o3d.visualization.draw_geometries([pcd])
-
+        # o3d.visualization.draw_geometries([pcd])
 
         # Save point cloud
         o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)

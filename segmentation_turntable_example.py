@@ -47,11 +47,8 @@ if __name__ == "__main__":
     cv2.destroyAllWindows()
     time.sleep(0.5)
 
-    while True:
-        idx += 1
-        if idx == capture_idx + 1:
-                break
 
+    while cv2.waitKey(100) != ord('q'):
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
         rgb = capture.color
@@ -62,20 +59,21 @@ if __name__ == "__main__":
         print(rgb.shape)
 
         depth = depth * mask
-        rgb = rgb * np.expand_dims(mask, axis=-1)
+        masked_rgb = rgb.copy() * np.expand_dims(mask, axis=-1).astype(np.uint8)
 
-        gray = rgb.copy().astype(np.uint8)
-        gray = cv2.cvtColor(gray, cv2.COLOR_RGB2GRAY)
         
-        canny = cv2.Canny(gray, threshold1=200, threshold2=255)
-        cv2.imshow('test', canny)
-        cv2.waitKey(0)
+        background = np.ones(masked_rgb.shape, dtype=np.uint8) * 255
 
-        # max_range_mask = np.where(np.logical_and(depth<650, depth>400), 1, 0)
-        # depth = depth * max_range_mask
-        # rgb = rgb * np.expand_dims(max_range_mask, axis=-1)
-        # print(depth.shape)
-        # rgb_list.append(rgb)
-        # depth_list.append(depth)
+        # # HSV 색 공간에서 녹색 영역을 검출하여 합성
+        hsv = cv2.cvtColor(masked_rgb.copy(), cv2.COLOR_BGR2HSV)
+        green_mask = cv2.inRange(hsv, (50, 150, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
 
-        # time.sleep(1)
+        
+        print(green_mask.shape)
+        green_mask = cv2.add(background[:, :, 0], green_mask)
+        
+
+        cv2.copyTo(masked_rgb, green_mask, background)
+        cv2.imshow('frame', green_mask)
+
+    cv2.destroyAllWindows()

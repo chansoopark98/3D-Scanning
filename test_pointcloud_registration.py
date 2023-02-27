@@ -74,7 +74,12 @@ if __name__ == '__main__':
         for i in range(24):
             pcd = o3d.io.read_point_cloud(f"./360degree_pointclouds/test_pointcloud_{i}.pcd")
             print(np.mean(np.asarray(pcd.points)[:, 2]))
+
+            # Statistical outlier removal
+            # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
+            #                              std_ratio=2.0)
             pcds.append(pcd)
+        
 
         # Visualize the mesh
         o3d.visualization.draw_geometries(pcds)
@@ -101,7 +106,14 @@ if __name__ == '__main__':
             # downsampling
             cloud_base.voxel_down_sample(down_voxel_size)
             
-            
+        
+
+        # Statistical outlier removal
+        cloud_base, _ = cloud_base.remove_statistical_outlier(nb_neighbors=30,
+                                         std_ratio=3.0)
         
         # Visualize the mesh
         o3d.visualization.draw_geometries([cloud_base])
+
+        # Save point cloud
+        o3d.io.write_point_cloud('./merged_pointcloud_{0}.pcd'.format(i), cloud_base)
