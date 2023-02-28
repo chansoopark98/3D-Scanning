@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     k4a = PyK4A(
         Config(
-            color_resolution=pyk4a.ColorResolution.RES_2160P,
+            color_resolution=pyk4a.ColorResolution.RES_720P,
             depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
             synchronized_images_only=True
         )
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 1
+    capture_idx = 12
 
     # Capture
     capture = k4a.get_capture()
@@ -80,7 +80,8 @@ if __name__ == "__main__":
         capture = k4a.get_capture()
         rgb = capture.color
         depth = capture.transformed_depth
-    
+        
+
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)
 
@@ -90,20 +91,26 @@ if __name__ == "__main__":
 
         # 크로마키
         hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
-        green_mask = cv2.inRange(hsv, (50, 121, 0), (71, 255, 255)) # 영상, 최솟값, 최댓값
+        green_mask = cv2.inRange(hsv, (37, 109, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
         green_mask = cv2.bitwise_not(green_mask)
 
         object_mask[y:y+h, x:x+w] = green_mask
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        object_mask = cv2.erode(object_mask, kernel, iterations=2)
+
         object_mask = (object_mask / 255.).astype(np.uint16)
         
         depth *= object_mask.astype(np.uint16)
         rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
 
+        # plt.imshow(rgb)
+        # plt.show()
+
         rgb_list.append(rgb)
         depth_list.append(depth)
 
-
-        time.sleep(1)
+        time.sleep(2)
     
     for i in range(len(depth_list)):
         print('save pointclouds {0}'.format(i))
@@ -132,8 +139,8 @@ if __name__ == "__main__":
         test_rgbd_image = np.asarray(rgbd_image)
 
         print('rgbd shape', test_rgbd_image.shape)
-        # plt.imshow(test_rgbd_image)
-        # plt.show()
+    
+
         # rgbd image convert to pointcloud
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
 

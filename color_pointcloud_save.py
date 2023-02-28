@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 24
+    capture_idx = 2
 
     # Capture
     capture = k4a.get_capture()
@@ -118,8 +118,8 @@ if __name__ == "__main__":
 
         # Statistical outlier removal
         print('remove outlier pointclouds {0}'.format(i))
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
-                                         std_ratio=2.0)
+        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
+        #                                  std_ratio=2.0)
 
         # Visualize the mesh
         o3d.visualization.draw_geometries([pcd])

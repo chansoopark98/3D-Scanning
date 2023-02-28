@@ -51,10 +51,10 @@ if __name__ == "__main__":
         pass
 
     # 트랙바의 범위 설정
-    cv2.createTrackbar('L-H', 'panel', 50,179, nothing)
-    cv2.createTrackbar('U-H', 'panel', 71,179, nothing)
+    cv2.createTrackbar('L-H', 'panel', 37,179, nothing)
+    cv2.createTrackbar('U-H', 'panel', 70,179, nothing)
     
-    cv2.createTrackbar('L-S', 'panel', 121,255, nothing)
+    cv2.createTrackbar('L-S', 'panel', 109,255, nothing)
     cv2.createTrackbar('U-S', 'panel', 255,255, nothing)
 
     cv2.createTrackbar('L-V', 'panel', 0,255, nothing)
@@ -85,24 +85,21 @@ if __name__ == "__main__":
         roi_rgb = rgb.copy()[y:y+h, x:x+w]
 
         # 크로마키
+        
         hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
         
         green_mask = cv2.inRange(hsv, lower_green, upper_green) # 영상, 최솟값, 최댓값
         
         green_mask = cv2.bitwise_not(green_mask)
 
-        
-        object_mask[y:y+h, x:x+w] = green_mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        # object_mask = cv2.erode(object_mask, kernel, iterations=3)
     
-        contour_mask = np.zeros(object_mask.shape, dtype=np.uint8)
-        contours, hierarchy = cv2.findContours(object_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        contour_mask = cv2.drawContours(contour_mask, contours, 0, 255, -1)
-
-        contour_mask = (contour_mask / 255.).astype(np.uint16)
+        object_mask[y:y+h, x:x+w] = green_mask
+        object_mask = (object_mask / 255.).astype(np.uint16)
         
-        depth *= contour_mask.astype(np.uint16)
-        rgb *= np.expand_dims(contour_mask.astype(np.uint8), axis=-1)
-
+        depth *= object_mask.astype(np.uint16)
+        rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
 
         cv2.imshow('panel', rgb)
 

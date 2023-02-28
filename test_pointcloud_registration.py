@@ -2,7 +2,7 @@ import open3d as o3d
 import copy 
 from modern_robotics import *
 
-down_voxel_size = 0.1
+down_voxel_size = 10
 icp_distance = down_voxel_size * 15
 result_icp_distance = down_voxel_size * 1.5
 radius_normal = down_voxel_size * 2
@@ -31,15 +31,10 @@ def registerLocalCloud(target, source):
         # source_temp.estimate_normals()
         # target_temp.estimate_normals()
 
-        
         current_transformation = np.identity(4)
         
-        # result_icp_p2l = o3d.pipelines.registration.registration_icp(source_temp, target_temp, icp_distance,
-        #         current_transformation, o3d.pipelines.registration.TransformationEstimationPointToPlane())
-        
-        result_icp_p2l = o3d.pipelines.registration.registration_colored_icp(source_temp, target_temp, icp_distance,
-                current_transformation, o3d.pipelines.registration.TransformationEstimationForColoredICP())
-
+        result_icp_p2l = o3d.pipelines.registration.registration_icp(source_temp, target_temp, icp_distance,
+                current_transformation, o3d.pipelines.registration.TransformationEstimationPointToPlane())
 
         print("----------------")
         print("initial guess from Point-to-plane ICP registeration")
@@ -47,10 +42,6 @@ def registerLocalCloud(target, source):
         print(result_icp_p2l.transformation)
 
         p2l_init_trans_guess = result_icp_p2l.transformation
-        
-
-        # result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, result_icp_distance,
-        #         p2l_init_trans_guess, o3d.pipelines.registration.TransformationEstimationPointToPlane())
         
         # print('try result_icp')
         result_icp = o3d.pipelines.registration.registration_colored_icp(source_temp, target_temp, result_icp_distance,
@@ -104,13 +95,13 @@ if __name__ == '__main__':
             cloud_base = cloud_base + cloud2
 
             # downsampling
-            cloud_base.voxel_down_sample(down_voxel_size)
+            # cloud_base.voxel_down_sample(down_voxel_size)
             
         
 
-        # Statistical outlier removal
-        cloud_base, _ = cloud_base.remove_statistical_outlier(nb_neighbors=30,
-                                         std_ratio=3.0)
+        # # Statistical outlier removal
+        # cloud_base, _ = cloud_base.remove_statistical_outlier(nb_neighbors=30,
+        #                                  std_ratio=3.0)
         
         # Visualize the mesh
         o3d.visualization.draw_geometries([cloud_base])
