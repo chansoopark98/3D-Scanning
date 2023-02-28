@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Capture
     capture = k4a.get_capture()
-    rgb = capture.color
+    rgb = capture.transformed_color
 
     # select roit
     x, y, w, h = cv2.selectROI(rgb)
@@ -74,8 +74,8 @@ if __name__ == "__main__":
         upper_green = np.array([u_h,u_s,u_v])
 
         capture = k4a.get_capture()
-        rgb = capture.color
-        depth = capture.transformed_depth
+        rgb = capture.transformed_color
+        depth = capture.depth
 
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)

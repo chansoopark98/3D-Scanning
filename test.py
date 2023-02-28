@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import pyk4a
-from pyk4a import Config, PyK4A
+from pyk4a import Config, PyK4A, FPS
 import open3d as o3d
 import time
 import numpy as np
@@ -9,7 +9,7 @@ import cv2
 
 class PyAzureKinectCamera(object):
     def __init__(self) -> None:
-        config = self.get_camera_config(resolution='720')
+        config = self.get_camera_config(resolution='1080')
         self.k4a = PyK4A(config=config)
         self.k4a.start()
 
@@ -31,7 +31,8 @@ class PyAzureKinectCamera(object):
         config = pyk4a.Config(
             color_resolution=color_resolution,
             depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
-            synchronized_images_only=True
+            synchronized_images_only=True,
+            camera_fps=FPS.FPS_5
         )
         return config
 
@@ -68,7 +69,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 24
+    capture_idx = 8
 
     # Capture
     
@@ -140,20 +141,17 @@ if __name__ == "__main__":
         object_mask[y:y+h, x:x+w] = green_mask
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        object_mask = cv2.erode(object_mask, kernel, iterations=2)
+        object_mask = cv2.erode(object_mask, kernel)
 
         object_mask = (object_mask / 255.).astype(np.uint16)
         
         depth *= object_mask.astype(np.uint16)
         rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
 
-        # plt.imshow(rgb)
-        # plt.show()
-
         rgb_list.append(rgb)
         depth_list.append(depth)
 
-        time.sleep(0.95)
+        time.sleep(2.998)
     
     for i in range(len(depth_list)):
         print('save pointclouds {0}'.format(i))
