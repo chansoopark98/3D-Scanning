@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
         # 크로마키
         hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
-        green_mask = cv2.inRange(hsv, (50, 150, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
+        green_mask = cv2.inRange(hsv, (50, 121, 0), (71, 255, 255)) # 영상, 최솟값, 최댓값
         green_mask = cv2.bitwise_not(green_mask)
 
         object_mask[y:y+h, x:x+w] = green_mask
@@ -140,26 +140,10 @@ if __name__ == "__main__":
         o3d.visualization.draw_geometries([pcd])
         
         # Statistical outlier removal
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
-                                         std_ratio=3.0)
-
-        # Perform plane segmentation
-        # plane_model, inliers = pcd.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
-
-        # Remove turntable floor from point cloud data
-        # pcd = pcd.select_by_index(inliers, invert=True)
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
+                                         std_ratio=2.0)
 
         o3d.visualization.draw_geometries([pcd])
-
-
-        # Statistical outlier removal
-        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
-        #                                  std_ratio=2.0)
-
-        # o3d.visualization.draw_geometries([pcd])
-
-        # Visualize the mesh
-        # o3d.visualization.draw_geometries([pcd])
 
         # Save point cloud
         o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)
