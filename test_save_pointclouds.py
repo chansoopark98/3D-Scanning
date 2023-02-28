@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 2
+    capture_idx = 1
 
     # Capture
     capture = k4a.get_capture()
@@ -83,17 +83,25 @@ if __name__ == "__main__":
     
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)
-        print(rgb.shape)
 
-        depth = depth * mask
-        rgb = rgb * np.expand_dims(mask, axis=-1)
+        object_mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
 
-        # max_range_mask = np.where(np.logical_and(depth<650, depth>400), 1, 0)
-        # depth = depth * max_range_mask
-        # rgb = rgb * np.expand_dims(max_range_mask, axis=-1)
-        print(depth.shape)
+        roi_rgb = rgb.copy()[y:y+h, x:x+w]
+
+        # 크로마키
+        hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
+        green_mask = cv2.inRange(hsv, (50, 150, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
+        green_mask = cv2.bitwise_not(green_mask)
+
+        object_mask[y:y+h, x:x+w] = green_mask
+        object_mask = (object_mask / 255.).astype(np.uint16)
+        
+        depth *= object_mask.astype(np.uint16)
+        rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
+
         rgb_list.append(rgb)
         depth_list.append(depth)
+
 
         time.sleep(1)
     
@@ -129,19 +137,19 @@ if __name__ == "__main__":
         # rgbd image convert to pointcloud
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
 
-        # o3d.visualization.draw_geometries([pcd])
+        o3d.visualization.draw_geometries([pcd])
         
         # Statistical outlier removal
-        # pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
-        #                                  std_ratio=3.0)
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=30,
+                                         std_ratio=3.0)
 
         # Perform plane segmentation
-        plane_model, inliers = pcd.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
+        # plane_model, inliers = pcd.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
 
         # Remove turntable floor from point cloud data
-        pcd = pcd.select_by_index(inliers, invert=True)
+        # pcd = pcd.select_by_index(inliers, invert=True)
 
-        # o3d.visualization.draw_geometries([pcd])
+        o3d.visualization.draw_geometries([pcd])
 
 
         # Statistical outlier removal

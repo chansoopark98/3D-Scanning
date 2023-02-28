@@ -62,6 +62,7 @@ if __name__ == "__main__":
 
         # 크로마키
         hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
+        
         green_mask = cv2.inRange(hsv, (50, 150, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
         green_mask = cv2.bitwise_not(green_mask)
 
@@ -69,7 +70,8 @@ if __name__ == "__main__":
         object_mask[y:y+h, x:x+w] = green_mask
         object_mask = (object_mask / 255.).astype(np.uint16)
         
-        depth *= object_mask
+        depth *= object_mask.astype(np.uint16)
+        rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
 
 
     cv2.destroyAllWindows()
