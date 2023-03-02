@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 48
+    capture_idx = 24
 
     # Capture
     capture = k4a.get_capture()
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     
     cv2.destroyAllWindows()
 
-    time.sleep(1)
+    time.sleep(0.5)
 
     coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=100, origin=[0, 0, 0])
 
@@ -71,49 +71,71 @@ if __name__ == "__main__":
                                                           cy=cy)
 
 
-    while True:
-        idx += 1
-        if idx == capture_idx + 1:
-                break
+    while cv2.waitKey(500) != ord('q'):
 
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
         rgb = capture.color
         depth = capture.transformed_depth
-    
+
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)
 
-        depth = depth * mask
-        rgb = rgb * np.expand_dims(mask, axis=-1)
+        object_mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
 
-        max_range_mask = np.where(np.logical_and(depth<710, depth>500), 1, 0)
-        depth = depth * max_range_mask
-        rgb = rgb * np.expand_dims(max_range_mask, axis=-1)
-        print(depth.shape)
+        roi_rgb = rgb.copy()[y:y+h, x:x+w]
+
+        # 크로마키
+        hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
+        green_mask = cv2.inRange(hsv, (37, 109, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
+        green_mask = cv2.bitwise_not(green_mask)
+
+        object_mask[y:y+h, x:x+w] = green_mask
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        object_mask = cv2.erode(object_mask, kernel, iterations=2)
+
+        object_mask = (object_mask / 255.).astype(np.uint16)
+        
+        depth *= object_mask.astype(np.uint16)
+        rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
+
+        cv2.imshow('test', rgb)
+
         rgb_list.append(rgb)
         depth_list.append(depth)
 
-        time.sleep(0.5)
+        # time.sleep(1)
     
     for i in range(len(depth_list)):
         print('save pointclouds {0}'.format(i))
         rgb_image = rgb_list[i]
         depth_image = depth_list[i]
+        
+        # rgb image scaling 
+        rgb_image = rgb_image.astype('uint8')
+
+        # convert rgb image to open3d depth map
+        rgb_image = o3d.geometry.Image(rgb_image)
 
         # depth image scaling
-        depth_image = depth_image.astype(np.float32) / 1000.
-        o3d_depth = o3d.geometry.Image(depth_image)
+        depth_image = depth_image.astype('uint16')
+        
+        # convert depth image to open3d depth map
+        depth_image = o3d.geometry.Image(depth_image)
+        
+        # convert to rgbd image
+        rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_image,
+                                                                        depth_image,
+                                                                        convert_rgb_to_intensity=False)
 
-        # Create a new point cloud from the depth image
-        pcd_from_depth = o3d.geometry.PointCloud.create_from_depth_image(
-            o3d_depth,
-            intrinsic=camera_intrinsics,
-            depth_scale=0.001,
-            depth_trunc=100.0,
-            stride=1,
-            project_valid_depth_only=True
-        )
+        test_rgbd_image = np.asarray(rgbd_image)
+
+        print('rgbd shape', test_rgbd_image.shape)
+    
+
+        # rgbd image convert to pointcloud
+        pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
 
         # Save point cloud
-        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd_from_depth)
+        o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)
