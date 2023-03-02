@@ -5,6 +5,7 @@ __pycache__/
 
 360degree_pointclouds/*
 4way_pointclouds/*
+rgb_images/*
 
 # C extensions
 *.so
