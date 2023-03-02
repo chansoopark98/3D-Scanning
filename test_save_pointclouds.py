@@ -28,7 +28,7 @@ if __name__ == "__main__":
     pcds = []
     rgb_list = []
     depth_list = []
-    capture_idx = 12
+    capture_idx = 24
 
     # Capture
     capture = k4a.get_capture()
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         rgb_list.append(rgb)
         depth_list.append(depth)
 
-        time.sleep(2)
+        time.sleep(1)
     
     for i in range(len(depth_list)):
         print('save pointclouds {0}'.format(i))
@@ -143,14 +143,6 @@ if __name__ == "__main__":
 
         # rgbd image convert to pointcloud
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
-
-        o3d.visualization.draw_geometries([pcd])
-        
-        # Statistical outlier removal
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20,
-                                         std_ratio=2.0)
-
-        o3d.visualization.draw_geometries([pcd])
 
         # Save point cloud
         o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)
