@@ -71,7 +71,7 @@ if __name__ == "__main__":
                                                           cy=cy)
 
 
-    while cv2.waitKey(10) != ord('q'):
+    while cv2.waitKey(250) != ord('q'):
         idx += 1
 
         capture = k4a.get_capture()

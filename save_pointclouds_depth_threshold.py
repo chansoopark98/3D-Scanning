@@ -71,7 +71,7 @@ if __name__ == "__main__":
                                                           cy=cy)
 
 
-    while cv2.waitKey(1000) != ord('q'):
+    while cv2.waitKey(500) != ord('q'):
 
         print('capture idx {0}'.format(idx))
         capture = k4a.get_capture()
@@ -93,12 +93,17 @@ if __name__ == "__main__":
         object_mask[y:y+h, x:x+w] = green_mask
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        object_mask = cv2.erode(object_mask, kernel, iterations=2)
+        object_mask = cv2.erode(object_mask, kernel, iterations=1)
 
         object_mask = (object_mask / 255.).astype(np.uint16)
         
         depth *= object_mask.astype(np.uint16)
         rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
+
+
+        distance_mask = np.where(np.logical_or(depth>=700, depth<=200), 0, 1).astype(np.uint16)
+        depth *= distance_mask
+        rgb *= np.expand_dims(distance_mask, axis=-1).astype(np.uint8)
 
         cv2.imshow('test', rgb)
 

@@ -3,14 +3,14 @@ from pyk4a import Config, PyK4A
 import numpy as np
 
 class PyAzureKinectCamera(object):
-    def __init__(self) -> None:
-        config = self.get_camera_config(resolution='720')
+    def __init__(self, resolution: str = '720') -> None:
+        config = self.__get_camera_config(resolution=resolution)
         self.k4a = PyK4A(config=config)
         self.k4a.start()
 
         self.capture_buffer = None
     
-    def get_camera_config(self, resolution: str = '720'):
+    def __get_camera_config(self, resolution: str = '720'):
         if resolution == '720':
             color_resolution = pyk4a.ColorResolution.RES_720P
         elif resolution == '1080':
