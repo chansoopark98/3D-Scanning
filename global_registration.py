@@ -170,14 +170,14 @@ if __name__ == '__main__':
     cloud_base.orient_normals_to_align_with_direction()
 
     # surface reconstruction
-    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=10, n_threads=1)[0]
+    # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=9, n_threads=1)[0]
+    # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=10)
 
     # cloud_base.estimate_normals()
-    # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(cloud_base, 0.001)
-    # mesh.compute_vertex_normals()
-
+    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(cloud_base, 0.001)
+    mesh.compute_vertex_normals()
 
     # Save point cloud
-    o3d.io.write_point_cloud('./merged_pointcloud_{0}.pcd'.format(i), cloud_base)
+    o3d.io.write_point_cloud('./merged_pointcloud_{0}.ply'.format(i), cloud_base)
 
     o3d.io.write_triangle_mesh('./test_mesh.ply', mesh)
