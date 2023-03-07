@@ -27,8 +27,8 @@ sift = cv2.SIFT_create()
 
 kp_list = []
 des_list = []
-for img in images:
-    kp, des = sift.detectAndCompute(img, None)
+for gray_image in gray_images:
+    kp, des = sift.detectAndCompute(gray_image, None)
     kp_list.append(kp)
     des_list.append(des)
 
@@ -45,6 +45,14 @@ for i in range(len(des_list)-1):
             good_matches.append(m)
     matches_list.append(good_matches)
 
+
+test_matches = matcher.match(des_list[0], des_list[1])
+res = cv2.drawMatches(images[0], kp_list[0], images[1], kp_list[1], test_matches, None, \
+                     flags=cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
+
+cv2.imshow('BFMatcher + ORB', res)
+cv2.waitKey()
+
 # Estimate camera poses using the matches
 print('Estimate camera poses using the matches')
 camera_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
@@ -60,6 +68,8 @@ for i, matches in enumerate(matches_list):
     pose = np.vstack((pose, np.array([0, 0, 0, 1])))
     pose_list.append(np.dot(pose_list[-1], pose))
 
+print(pose_list)
+
 
 point_cloud = []
 for i in range(len(matches_list)):
@@ -69,14 +79,12 @@ for i in range(len(matches_list)):
     P2 = np.dot(camera_matrix, pose_list[i+1][:3, :])
     points_4d = cv2.triangulatePoints(P1, P2, src_pts, dst_pts)
     points_3d = cv2.convertPointsFromHomogeneous(points_4d.T)
-    print(points_3d.shape)
+    
     point_cloud.append(points_3d.reshape(-1, 3))
 
 
 
 output_points = np.vstack(point_cloud)
-
-print(output_points.min())
 # output_points = np.reshape(output_points, [-1, 3])
 
 # print(output_points.mean())
