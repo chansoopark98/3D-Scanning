@@ -32,14 +32,36 @@ def camera_pose_estimation(images, K):
         # E, mask = cv2.findEssentialMat(src_pts, dst_pts, K)
         # _, R, t, mask = cv2.recoverPose(E, src_pts, dst_pts, K)
         
-        E, _ = cv2.findEssentialMat(src_pts, dst_pts, K, cv2.RANSAC, 0.999, 1.0)
+        E, mask = cv2.findEssentialMat(src_pts, dst_pts, K, cv2.RANSAC, 0.999, 1.0)
+
+        src_pts = src_pts[mask.ravel()==1]
+        dst_pts = dst_pts[mask.ravel()==1]
+
+
         _, R, t, _ = cv2.recoverPose(E, src_pts, dst_pts, K)
 
         pose = np.eye(4)
         pose[:3, :3] = R
-        # pose[:3, 3] = np.reshape(t, [3,])
+        pose[:3, 3] = np.reshape(t, [3,])
 
         print(pose)
         pose_list.append(pose)
 
     return pose_list
+
+fx = 914.9718627929688
+fy = 914.7095947265625
+cx = 956.8119506835938
+cy = 551.3303833007812
+camera_matrix = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+
+images = []
+for i in range(1, 27):
+    img_path = f'./rgb_images/image_{i}.png'
+    img = cv2.imread(img_path)
+    images.append(img)
+
+# camera_pose_estimation(images=images, K=camera_matrix)
+from modeler import SfM
+sfm = SfM('./', False, './test_video.mp4', 3)
+sfm.find_structure_from_motion()
