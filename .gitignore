@@ -6,6 +6,7 @@ __pycache__/
 360degree_pointclouds/*
 4way_pointclouds/*
 rgb_images/*
+kinect_capture_data/*
 
 # C extensions
 *.so
