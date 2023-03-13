@@ -1,12 +1,23 @@
 from azure_kinect import PyAzureKinectCamera
 import matplotlib.pyplot as plt
+from typing import Optional, Tuple
 import os
 import numpy as np
 import cv2
 from datetime import datetime
 import csv
 
-def depth_inpaint(depth, max_value=10, missing_value=0):
+def colorize(image: np.ndarray, clipping_range: Tuple[Optional[int], Optional[int]] = (None, None),
+    colormap: int = cv2.COLORMAP_HSV,) -> np.ndarray:
+    if clipping_range[0] or clipping_range[1]:
+        img = image.clip(clipping_range[0], clipping_range[1])
+    else:
+        img = image.copy()
+    img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    img = cv2.applyColorMap(img, colormap)
+    return img
+
+def depth_inpaint(depth, max_value=10, missing_value=0) -> np.ndarray:
     depth = np.where(depth > max_value, 0, depth)
 
     depth = cv2.copyMakeBorder(depth, 1, 1, 1, 1, cv2.BORDER_DEFAULT)
@@ -48,10 +59,25 @@ idx = 0
 if __name__ == "__main__":
     while True:
         camera.capture()
-        rgb = camera.get_color()
+        capture_frame = camera.get_color()
+        print('capture_frame shape {0}'.format(capture_frame.shape))
+        rgb = capture_frame[:, :, :3].astype(np.uint8)
+
         depth = camera.get_transformed_depth()
+        # depth = depth / 1000.
+        # depth = depth_inpaint(depth=depth)
         
-        cv2.imshow('test', rgb)
+        vis_depth = depth.copy()
+        
+        # vis_depth = depth_inpaint(depth=vis_depth, max_value=100)
+        
+        vis_depth = colorize(vis_depth, (None, 5000), cv2.COLORMAP_HSV)
+        
+        # vis_depth = np.expand_dims(vis_depth.astype(np.uint8), axis=-1)
+        # vis_depth = np.concatenate([vis_depth, vis_depth, vis_depth], axis=-1)
+        
+        concat = cv2.hconcat([rgb, vis_depth])
+        cv2.imshow('test', concat)
         key = cv2.waitKey(300)
         
         
@@ -63,11 +89,5 @@ if __name__ == "__main__":
             print(key)
             print('current index is : {0}'.format(idx))
 
-            rgb = rgb[:, :, :3].astype(np.uint8)
-
-            depth = depth / 1000.
-            depth = depth_inpaint(depth=depth)
-
-            
             cv2.imwrite(rgb_path + '_' + dir_name + '_' + current_time + '_rgb_{0}.jpg'.format(idx), rgb )
             np.save(depth_path + '_' + dir_name + '_' + current_time + '_depth_{0}.npy'.format(idx), depth)

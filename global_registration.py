@@ -48,6 +48,14 @@ def execute_global_registration(source_down, target_down, source_fpfh,
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
                 distance_threshold)
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
+    
+    """Test RANSAC"""
+    # result = o3d.registration.registration_ransac_based_on_feature_matching(
+    # pcd0, pcd1, source_feat, target_feat, distance_threshold,
+    # o3d.registration.TransformationEstimationPointToPoint(False), 4,
+    # [o3d.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
+    # o3d.registration.RANSACConvergenceCriteria(num_iterations, 1000))
+    
     return result
 
 def draw_registration_result(source, target, transformation):
@@ -127,7 +135,8 @@ if __name__ == '__main__':
         # cl, ind = pcd.remove_radius_outlier(nb_points=16, radius=0.2)
         filteredpcd = pcd.select_by_index(ind)
 
-        # o3d.visualization.draw_geometries([filteredpcd])
+        # coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05, origin=[0, 0, -0.01])
+        # o3d.visualization.draw_geometries([filteredpcd, coord_frame])
 
         pcds.append(filteredpcd)
     
