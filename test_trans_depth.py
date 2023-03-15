@@ -19,6 +19,7 @@ def colorize(image: np.ndarray, clipping_range: Tuple[Optional[int], Optional[in
 def main():
     k4a = PyK4A(
         Config(
+            # (1536, 2048, 4)
             color_resolution=pyk4a.ColorResolution.RES_1536P,
             depth_mode=pyk4a.DepthMode.WFOV_2X2BINNED,
         )
@@ -33,6 +34,7 @@ def main():
             cv2.imshow("IR", colorize(capture.ir, (None, 500), colormap=cv2.COLORMAP_JET))
         if capture.color is not None:
             cv2.imshow("Color", capture.color)
+            print(capture.color.shape)
         if capture.transformed_depth is not None:
             cv2.imshow("Transformed Depth", colorize(capture.transformed_depth, (None, 5000)))
         if capture.transformed_color is not None:
