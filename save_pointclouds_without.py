@@ -1,29 +1,29 @@
 import matplotlib.pyplot as plt
 import pyk4a
 from pyk4a import Config, PyK4A
+from azure_kinect import PyAzureKinectCamera
 import open3d as o3d
 import time
 import numpy as np
 import copy
 import cv2
-from camera_pose_estimation import camera_pose_estimation
+import os
+from datetime import datetime
 
 if __name__ == "__main__":
+    camera = PyAzureKinectCamera(resolution='1536')
 
-    k4a = PyK4A(
-        Config(
-            color_resolution=pyk4a.ColorResolution.RES_720P,
-            depth_mode=pyk4a.DepthMode.NFOV_UNBINNED,
-            synchronized_images_only=True
-        )
-    )
-    k4a.start()
-    
-    # getters and setters directly get and set on device
-    k4a.whitebalance = 4500
-    assert k4a.whitebalance == 4500
-    k4a.whitebalance = 4510
-    assert k4a.whitebalance == 4510
+    now = datetime.now()
+    current_time = now.strftime('%Y_%m_%d_%H_%M_%S')
+
+    save_dir = './360degree_pointclouds/{0}/'.format(current_time)
+    save_rgb_dir = save_dir + 'rgb/'
+    save_pcd_dir = save_dir + 'pcd/'
+    save_mesh_dir = save_dir + 'mesh/'
+    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(save_rgb_dir, exist_ok=True)
+    os.makedirs(save_pcd_dir, exist_ok=True)
+    os.makedirs(save_mesh_dir, exist_ok=True)
 
     idx = 0
     pcds = []
@@ -32,8 +32,8 @@ if __name__ == "__main__":
     capture_idx = 24
 
     # Capture
-    capture = k4a.get_capture()
-    rgb = capture.color
+    camera.capture()
+    rgb = camera.get_color()
 
     # select roit
     x, y, w, h = cv2.selectROI(rgb)
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=100, origin=[0, 0, 0])
 
     # Define the intrinsic parameters of the depth camera
-    intrinsic_matrix = k4a._calibration.get_camera_matrix(pyk4a.CalibrationType.COLOR)
+    intrinsic_matrix = camera.get_color_intrinsic_matrix()
 
     print(intrinsic_matrix)
     
@@ -72,12 +72,10 @@ if __name__ == "__main__":
                                                           cy=cy)
 
 
-    while cv2.waitKey(1000) != ord('q'):
-
-        print('capture idx {0}'.format(idx))
-        capture = k4a.get_capture()
-        rgb = capture.color
-        depth = capture.transformed_depth
+    while True:
+        camera.capture()
+        rgb = camera.get_color()
+        depth = camera.get_transformed_depth()
 
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)
@@ -86,32 +84,31 @@ if __name__ == "__main__":
 
         roi_rgb = rgb.copy()[y:y+h, x:x+w]
 
-        # 크로마키
-        hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
-        green_mask = cv2.inRange(hsv, (37, 109, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
-        green_mask = cv2.bitwise_not(green_mask)
-
-        object_mask[y:y+h, x:x+w] = green_mask
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        object_mask = cv2.erode(object_mask, kernel, iterations=2)
+        object_mask[y:y+h, x:x+w] = 255
 
         object_mask = (object_mask / 255.).astype(np.uint16)
         
         depth *= object_mask.astype(np.uint16)
         rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
-
+        
         cv2.imshow('test', rgb)
 
-        rgb_list.append(rgb)
-        depth_list.append(depth)
+        key = cv2.waitKey(100)
+        if key == ord('q'):
+            break
+        elif key == ord('d'):
+            print('capture idx {0}'.format(idx))
+            
+            
 
-        # time.sleep(1)
+            rgb_list.append(rgb)
+            depth_list.append(depth)
+
     
-    pcds = []
     for i in range(len(depth_list)):
         print('save pointclouds {0}'.format(i))
         rgb_image = rgb_list[i]
+        save_rgb = cv2.cvtColor(rgb_image.copy(), cv2.COLOR_RGB2BGR)
         depth_image = depth_list[i]
         
         # rgb image scaling 
@@ -139,16 +136,8 @@ if __name__ == "__main__":
         # rgbd image convert to pointcloud
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
 
-        pcds.append(pcd)
         # Save point cloud
-        # o3d.io.write_point_cloud('./360degree_pointclouds/test_pointcloud_{0}.pcd'.format(i), pcd)
-    
-    pose_list = camera_pose_estimation(images=rgb_list, K=intrinsic_matrix)
-    vis_pcd = o3d.geometry.PointCloud()
-    for i in range(len(pcds)):
-        pcd = pcds[i]
-        pcd.transform(pose_list[i])
-        vis_pcd += pcd
-        o3d.visualization.draw_geometries([vis_pcd])
+        o3d.io.write_point_cloud(save_pcd_dir + 'test_pointcloud_{0}.pcd'.format(i), pcd)
 
-        
+        # Save rgb image
+        cv2.imwrite(save_rgb_dir + 'test_rgb_{0}.png'.format(i), save_rgb)

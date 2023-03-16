@@ -2,10 +2,15 @@ import open3d as o3d
 import copy 
 from modern_robotics import *
 
-voxel_size = 0.001
+# original
+# voxel_size = 0.001
+# icp_distance = 0.01
+# color_icp_distance = 0.02
 
-icp_distance = 0.01
-color_icp_distance = 0.02
+# test
+voxel_size = 0.005
+icp_distance = voxel_size * 100
+color_icp_distance = voxel_size * 50
 
 def cal_angle(pl_norm, R_dir):
     angle_in_radians = \
@@ -38,6 +43,8 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     # print(":: RANSAC registration on downsampled point clouds.")
     # print("   Since the downsampling voxel size is %.3f," % voxel_size)
     # print("   we use a liberal distance threshold %.3f." % distance_threshold)
+
+    """Original RANSAC"""
     result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
         source_down, target_down, source_fpfh, target_fpfh, True,
         distance_threshold,
@@ -50,11 +57,13 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
     
     """Test RANSAC"""
-    # result = o3d.registration.registration_ransac_based_on_feature_matching(
-    # pcd0, pcd1, source_feat, target_feat, distance_threshold,
-    # o3d.registration.TransformationEstimationPointToPoint(False), 4,
-    # [o3d.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
-    # o3d.registration.RANSACConvergenceCriteria(num_iterations, 1000))
+    # result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+    #     source_down, target_down, source_fpfh, target_fpfh, distance_threshold,
+    #     o3d.pipelines.registration.TransformationEstimationPointToPoint(
+    #         False), 4,
+    #     [o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
+    #         distance_threshold)],
+    #     o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.8))
     
     return result
 
@@ -124,19 +133,22 @@ if __name__ == '__main__':
     # with o3d.utility.VerbosityContextManager(o3d.utility.VerbosityLevel.Debug) as cm:
     # Load point clouds
     pcds = []
-    for i in range(16):
-        pcd = o3d.io.read_point_cloud(f"./360degree_pointclouds/test_pointcloud_{i}.pcd")
+    dir_name = '2023_03_16_17_19_09'
+    for i in range(6):
+        pcd = o3d.io.read_point_cloud('./360degree_pointclouds/{1}/pcd/test_pointcloud_{0}.pcd'.format(i, dir_name))
         print(np.mean(np.asarray(pcd.points)[:, 2]))
 
         # o3d.visualization.draw_geometries([pcd])
 
         # Filtering
-        cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=1.0)
+        cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
         # cl, ind = pcd.remove_radius_outlier(nb_points=16, radius=0.2)
         filteredpcd = pcd.select_by_index(ind)
 
+        filteredpcd = filteredpcd.voxel_down_sample(voxel_size)
+
         # coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05, origin=[0, 0, -0.01])
-        # o3d.visualization.draw_geometries([filteredpcd, coord_frame])
+        # o3d.visualization.draw_geometries([filteredpcd])
 
         pcds.append(filteredpcd)
     
@@ -167,26 +179,51 @@ if __name__ == '__main__':
         
         # downsampling
         # cloud_base.voxel_down_sample(voxel_size)
-    
+
+    o3d.visualization.draw_geometries([cloud_base])
     cl, ind = cloud_base.remove_statistical_outlier(nb_neighbors=30, std_ratio=3.0)
     cloud_base = cloud_base.select_by_index(ind)
-
-    # Visualize the mesh
     o3d.visualization.draw_geometries([cloud_base])
 
     # estimate normals
-    cloud_base.estimate_normals()
-    cloud_base.orient_normals_to_align_with_direction()
+    # cloud_base = cloud_base.voxel_down_sample(voxel_size)
+    # cloud_base.estimate_normals()
+    
+    # cloud_base.orient_normals_to_align_with_direction()
 
     # surface reconstruction
     # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=9, n_threads=1)[0]
-    # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=10)
+    # mesh, des = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=15)
+
+    
 
     # cloud_base.estimate_normals()
-    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(cloud_base, 0.001)
+    
+    print('Create 3d mesh use alpha shape')
+    # mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(cloud_base, 0.001)
+    # mesh.compute_vertex_normals()
+
+    cloud_base.compute_convex_hull()
+    cloud_base.estimate_normals()
+    cloud_base.orient_normals_consistent_tangent_plane(10)
+
+    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud_base, depth=10, scale=1.1, linear_fit=False)[0]
+    bbox = cloud_base.get_axis_aligned_bounding_box()
+    mesh = mesh.crop(bbox)
+    
     mesh.compute_vertex_normals()
+    # mesh.paint_uniform_color([0.5, 0.5, 0.5])
+    mesh.remove_degenerate_triangles()
+    mesh.remove_duplicated_triangles()
+    mesh.remove_non_manifold_edges()
+    mesh.remove_duplicated_vertices()
+    o3d.visualization.draw_geometries([cloud_base, mesh], mesh_show_back_face=True)
 
-    # Save point cloud
-    o3d.io.write_point_cloud('./merged_pointcloud_{0}.ply'.format(i), cloud_base)
+    # Visualize the mesh
+    print('Visualize the mesh')
+    # o3d.visualization.draw_geometries([mesh])
 
-    o3d.io.write_triangle_mesh('./test_mesh.ply', mesh)
+    # Save point cloud & mesh
+    print('Visualize the mesh')
+    o3d.io.write_point_cloud('./360degree_pointclouds/{0}/mesh/merged_pointclouds.ply'.format(dir_name), cloud_base)
+    o3d.io.write_triangle_mesh('./360degree_pointclouds/{0}/mesh/3d_model.gltf'.format(dir_name), mesh)
