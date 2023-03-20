@@ -1,45 +1,147 @@
+from azure_kinect import PyAzureKinectCamera
 import open3d as o3d
+import time
 import numpy as np
+import cv2
+import os
+from datetime import datetime
+import matplotlib.pyplot as plt
 
-# Load point clouds from multiple frames
-pcd_list = []
-for i in range(num_frames):
-    pcd = o3d.io.read_point_cloud(f"frame_{i}.ply")
-    pcd_list.append(pcd)
+if __name__ == "__main__":
+    camera = PyAzureKinectCamera(resolution='1536')
 
-# Combine point clouds into a single point cloud
-combined_pcd = o3d.geometry.PointCloud()
-for pcd in pcd_list:
-    combined_pcd += pcd
+    now = datetime.now()
+    current_time = now.strftime('%Y_%m_%d_%H_%M_%S')
 
-# Remove points below a certain height
-height_threshold = 0.05  # adjust as needed
-bounding_box = combined_pcd.get_axis_aligned_bounding_box()
-min_height = bounding_box.min_bound[2]
-remove_indices = []
-for i, point in enumerate(combined_pcd.points):
-    if point[2] - min_height < height_threshold:
-        remove_indices.append(i)
-combined_pcd = combined_pcd.select_by_index(remove_indices, invert=True)
+    save_dir = './360degree_pointclouds/{0}/'.format(current_time)
+    save_rgb_dir = save_dir + 'rgb/'
+    save_pcd_dir = save_dir + 'pcd/'
+    save_mesh_dir = save_dir + 'mesh/'
+    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(save_rgb_dir, exist_ok=True)
+    os.makedirs(save_pcd_dir, exist_ok=True)
+    os.makedirs(save_mesh_dir, exist_ok=True)
 
-# Fit a plane to the remaining points
-plane_model, inliers = combined_pcd.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
-inlier_pcd = combined_pcd.select_by_index(inliers)
-plane = plane_model.parameters
+    idx = 0
+    pcds = []
+    rgb_list = []
+    depth_list = []
+    capture_idx = 24
 
-# Calculate the normal vector of the plane
-normal = plane[:3] / np.linalg.norm(plane[:3])
+    # Capture
+    camera.capture()
+    rgb = camera.get_color()
 
-# Create a flat point cloud base
-flat_base_points = []
-for x, y in np.ndindex((100, 100)):
-    point = np.array([x * 0.01, y * 0.01, -plane[3] / plane[2]])
-    flat_base_points.append(point)
-flat_base = o3d.geometry.PointCloud()
-flat_base.points = o3d.utility.Vector3dVector(flat_base_points)
+    # select roit
+    x, y, w, h = cv2.selectROI(rgb)
 
-# Merge the flat base with the original point cloud
-merged_pcd = combined_pcd + flat_base
+    # pointcloud roi mask
+    mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
+    mask[y:y+h, x:x+w] = 1
+    mask = mask.astype(np.int16)
+    indicies = np.where(mask==1)
+    
+    cv2.destroyAllWindows()
 
-# Visualize the result
-o3d.visualization.draw_geometries([merged_pcd])
+    time.sleep(0.5)
+
+    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=100, origin=[0, 0, 0])
+
+    # Define the intrinsic parameters of the depth camera
+    intrinsic_matrix = camera.get_color_intrinsic_matrix()
+
+    print(intrinsic_matrix)
+    
+    width = rgb.shape[1]
+    height = rgb.shape[0]
+    fx = intrinsic_matrix[0, 0]
+    fy = intrinsic_matrix[1, 1]
+    cx = intrinsic_matrix[0, 2]
+    cy = intrinsic_matrix[1, 2]
+
+    # Create Open3D camera intrinsic object
+    camera_intrinsics = o3d.camera.PinholeCameraIntrinsic(width=width,
+                                                          height=height,
+                                                          fx=fx,
+                                                          fy=fy,
+                                                          cx=cx,
+                                                          cy=cy)
+
+
+    while cv2.waitKey(1000) != ord('q'):
+
+        print('capture idx {0}'.format(idx))
+        camera.capture()
+        rgb = camera.get_color()
+        depth = camera.get_transformed_depth()
+
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+        rgb = rgb[:, :, :3].astype(np.uint8)
+
+        object_mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
+
+        roi_rgb = rgb.copy()[y:y+h, x:x+w]
+
+        # 크로마키
+        hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
+        green_mask = cv2.inRange(hsv, (37, 109, 0), (70, 255, 255)) # 영상, 최솟값, 최댓값
+        green_mask = cv2.bitwise_not(green_mask)
+
+        object_mask[y:y+h, x:x+w] = green_mask
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        object_mask = cv2.erode(object_mask, kernel, iterations=2)
+
+        object_mask = (object_mask / 255.).astype(np.uint16)
+        
+        depth *= object_mask.astype(np.uint16)
+        rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
+
+        cv2.imshow('test', rgb)
+
+        rgb_list.append(rgb)
+        depth_list.append(depth)
+
+        # time.sleep(1)
+
+    cv2.destroyAllWindows()
+
+    for i in range(len(depth_list)):
+        print('save pointclouds {0}'.format(i))
+        rgb_image = rgb_list[i]
+        save_rgb = cv2.cvtColor(rgb_image.copy(), cv2.COLOR_RGB2BGR)
+        depth_image = depth_list[i]
+        
+        # rgb image scaling 
+        rgb_image = rgb_image.astype('uint8')
+
+        # convert rgb image to open3d depth map
+        rgb_image = o3d.geometry.Image(rgb_image)
+
+        # depth image scaling
+        depth_image = depth_image.astype('uint16')
+        
+        # convert depth image to open3d depth map
+        depth_image = o3d.geometry.Image(depth_image)
+        
+        # convert to rgbd image
+        rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(rgb_image,
+                                                                        depth_image,
+                                                                        depth_scale=1000,
+                                                                        depth_trunc=1,
+                                                                        convert_rgb_to_intensity=False)
+
+        test_rgbd_image = np.asarray(rgbd_image)
+
+        print('rgbd shape', test_rgbd_image.shape)
+    
+
+        # rgbd image convert to pointcloud
+        pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsics)
+        o3d.visualization.draw_geometries([pcd])
+
+        # Save point cloud
+        o3d.io.write_point_cloud(save_pcd_dir + 'test_pointcloud_{0}.pcd'.format(i), pcd)
+
+        # Save rgb image
+        cv2.imwrite(save_rgb_dir + 'test_rgb_{0}.png'.format(i), save_rgb)
