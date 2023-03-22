@@ -17,15 +17,18 @@ if __name__ == "__main__":
     current_time = now.strftime('%Y_%m_%d_%H_%M_%S')
 
     save_dir = './360degree_pointclouds/{0}/'.format(current_time)
+    save_raw_rgb_dir = save_dir + 'images/'
     save_rgb_dir = save_dir + 'rgb/'
     save_pcd_dir = save_dir + 'pcd/'
     save_mesh_dir = save_dir + 'mesh/'
     os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(save_raw_rgb_dir, exist_ok=True)
     os.makedirs(save_rgb_dir, exist_ok=True)
     os.makedirs(save_pcd_dir, exist_ok=True)
     os.makedirs(save_mesh_dir, exist_ok=True)
 
     idx = 0
+    raw_rgb_list = []
     pcds = []
     rgb_list = []
     depth_list = []
@@ -81,10 +84,15 @@ if __name__ == "__main__":
 
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)
+        
+        raw_rgb_list.append(rgb)
 
         object_mask = np.zeros(rgb.shape[:2], dtype=np.uint8)
 
         roi_rgb = rgb.copy()[y:y+h, x:x+w]
+
+
+        raw_rgb = rgb.copy()
 
         # 크로마키
         hsv = cv2.cvtColor(roi_rgb.copy(), cv2.COLOR_BGR2HSV)
@@ -102,6 +110,7 @@ if __name__ == "__main__":
         rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
 
         cv2.imshow('test', rgb)
+
 
         rgb_list.append(rgb)
         depth_list.append(depth)
@@ -142,5 +151,7 @@ if __name__ == "__main__":
         # Save point cloud
         o3d.io.write_point_cloud(save_pcd_dir + 'test_pointcloud_{0}.pcd'.format(i), pcd)
 
+        # Save raw rgb image
+        cv2.imwrite(save_raw_rgb_dir + 'test_raw_rgb_{0}.png'.format(i), raw_rgb_list[i])
         # Save rgb image
         cv2.imwrite(save_rgb_dir + 'test_rgb_{0}.png'.format(i), save_rgb)

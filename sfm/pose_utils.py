@@ -272,7 +272,7 @@ def extract_transformation_matrices(poses):
         transformation_matrix[:3, 3] = t[:, 0]
         transformation_matrix[3, 3] = 1
 
-        print('transformation_matrix', transformation_matrix)
+        # print('transformation_matrix', transformation_matrix)
 
         transformation_matrices.append(transformation_matrix)
 
@@ -313,5 +313,5 @@ def gen_poses(basedir, match_type, factors=None):
     
     print( 'Done with imgs2poses' )
     
-    return True
+    return transformation_matrices
     

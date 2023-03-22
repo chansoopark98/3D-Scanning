@@ -17,16 +17,19 @@ if __name__ == "__main__":
     current_time = now.strftime('%Y_%m_%d_%H_%M_%S')
 
     save_dir = './360degree_pointclouds/{0}/'.format(current_time)
+    save_raw_rgb_dir = save_dir + 'images/'
     save_rgb_dir = save_dir + 'rgb/'
     save_pcd_dir = save_dir + 'pcd/'
     save_mesh_dir = save_dir + 'mesh/'
     os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(save_raw_rgb_dir, exist_ok=True)
     os.makedirs(save_rgb_dir, exist_ok=True)
     os.makedirs(save_pcd_dir, exist_ok=True)
     os.makedirs(save_mesh_dir, exist_ok=True)
 
     idx = 0
     pcds = []
+    raw_rgb_list = []
     rgb_list = []
     depth_list = []
     capture_idx = 24
@@ -73,10 +76,13 @@ if __name__ == "__main__":
 
 
     while True:
+        if idx == 20:
+            break
         camera.capture()
         rgb = camera.get_color()
         depth = camera.get_transformed_depth()
-
+        
+        raw_rgb = rgb.copy()
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = rgb[:, :, :3].astype(np.uint8)
 
@@ -84,25 +90,25 @@ if __name__ == "__main__":
 
         roi_rgb = rgb.copy()[y:y+h, x:x+w]
 
-        object_mask[y:y+h, x:x+w] = 255
+        # object_mask[y:y+h, x:x+w] = 255
 
-        object_mask = (object_mask / 255.).astype(np.uint16)
+        # object_mask = (object_mask / 255.).astype(np.uint16)
         
-        depth *= object_mask.astype(np.uint16)
-        rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
+        # depth *= object_mask.astype(np.uint16)
+        # rgb *= np.expand_dims(object_mask.astype(np.uint8), axis=-1)
         
         cv2.imshow('test', rgb)
 
-        key = cv2.waitKey(100)
-        if key == ord('q'):
-            break
-        elif key == ord('d'):
-            print('capture idx {0}'.format(idx))
-            
-            
-
-            rgb_list.append(rgb)
-            depth_list.append(depth)
+        key = cv2.waitKey(500)
+        # if key == ord('q'):
+        #     break
+        # elif key == ord('d'):
+        print('capture idx {0}'.format(idx))
+        raw_rgb_list.append(raw_rgb)
+        rgb_list.append(rgb)
+        depth_list.append(depth)
+        
+        idx += 1
 
     
     for i in range(len(depth_list)):
@@ -138,6 +144,9 @@ if __name__ == "__main__":
 
         # Save point cloud
         o3d.io.write_point_cloud(save_pcd_dir + 'test_pointcloud_{0}.pcd'.format(i), pcd)
+
+        # Save raw rgb image
+        cv2.imwrite(save_raw_rgb_dir + 'test_raw_rgb_{0}.png'.format(i), raw_rgb_list[i])
 
         # Save rgb image
         cv2.imwrite(save_rgb_dir + 'test_rgb_{0}.png'.format(i), save_rgb)
