@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 if __name__ == "__main__":
-    camera = PyAzureKinectCamera(resolution='1536')
+    camera = PyAzureKinectCamera(resolution='720')
 
     now = datetime.now()
     current_time = now.strftime('%Y_%m_%d_%H_%M_%S')
@@ -33,6 +33,10 @@ if __name__ == "__main__":
     rgb_list = []
     depth_list = []
     capture_idx = 24
+
+    """
+    Camera extrinsic
+    """
 
     # Capture
     camera.capture()
@@ -81,6 +85,11 @@ if __name__ == "__main__":
         camera.capture()
         rgb = camera.get_color()
         depth = camera.get_transformed_depth()
+        imu = camera.get_imu()
+        
+
+        print(imu)
+        print(imu['acc_sample'])
         
         raw_rgb = rgb.copy()
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)

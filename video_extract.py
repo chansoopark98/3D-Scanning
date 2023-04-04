@@ -2,7 +2,7 @@ import cv2
 import time
 import os
 # 비디오 파일 열기
-cap = cv2.VideoCapture('20230322_171438.mp4')
+cap = cv2.VideoCapture('./frames/test2.mp4')
 
 # 비디오 파일이 성공적으로 열렸는지 확인
 if not cap.isOpened():
@@ -11,10 +11,10 @@ if not cap.isOpened():
 
 # 프레임 레이트 가져오기
 fps = cap.get(cv2.CAP_PROP_FPS)
-fps = 30
+fps = 3
 
 # 각 프레임에서 이미지를 추출하고 저장할 폴더 경로 설정
-output_folder = 'frames'
+output_folder = 'frames/images'
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 

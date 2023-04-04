@@ -33,6 +33,9 @@ class PyAzureKinectCamera(object):
             synchronized_images_only=True
         )
         return config
+    
+    def get_imu(self) -> np.ndarray:
+        return self.k4a.get_imu_sample()
 
     def get_color_intrinsic_matrix(self) -> np.ndarray:
         return self.k4a._calibration.get_camera_matrix(pyk4a.CalibrationType.COLOR)

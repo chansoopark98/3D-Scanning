@@ -160,7 +160,6 @@ if __name__ == '__main__':
 
     cloud1 = copy.deepcopy(cloud_base)
 
-
     detectTransLoop = np.identity(4)
     posWorldTrans = np.identity(4)
 
