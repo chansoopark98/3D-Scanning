@@ -1,11 +1,9 @@
 import open3d as o3d
 import copy 
 import numpy as np
-from azure_kinect import PyAzureKinectCamera
+from pyrealsense import PyRealSenseCamera
 import time
-"""
-http://www.open3d.org/docs/release/tutorial/reconstruction_system/index.html
-"""
+
 
 # Set up necessary configurations for real-time data acquisition
 voxel_size = 0.01
@@ -93,10 +91,10 @@ if __name__ == '__main__':
 
     pcd_combined = o3d.geometry.PointCloud()
 
-    camera = PyAzureKinectCamera(resolution='720')
+    camera = PyRealSenseCamera()
     camera.capture()
     rgb = camera.get_color()[:, :, :3].astype(np.uint8)
-    intrinsic_matrix = camera.get_color_intrinsic_matrix()
+    intrinsic_matrix = camera.get_camera_intrinsic()
     
     width = rgb.shape[1]
     height = rgb.shape[0]
@@ -118,8 +116,7 @@ if __name__ == '__main__':
         camera.capture()
         
         rgb_image = camera.get_color()[:, :, :3].astype(np.uint8)
-        depth_image = camera.get_transformed_depth()
-
+        depth_image = camera.get_depth() / 10.
         
         pcd = convert_to_pcd(rgb_image=rgb_image,
                              depth_image=depth_image,
@@ -155,8 +152,8 @@ if __name__ == '__main__':
             # result = o3d.pipelines.registration.registration_icp(prev_pcd, pcd, max_correspondence_distance,
             #     cam_pose, o3d.pipelines.registration.TransformationEstimationPointToPlane())
             
-            result = o3d.pipelines.registration.registration_colored_icp(pcd,
-                                                                              prev_pcd, max_correspondence_distance,
+            result = o3d.pipelines.registration.registration_colored_icp(prev_pcd,
+                                                                              pcd, max_correspondence_distance,
                 cam_pose,  o3d.pipelines.registration.TransformationEstimationForColoredICP(),
                 )
             
