@@ -60,6 +60,8 @@ class PyRealSenseCamera(object):
         """
         self.config.enable_stream(rs.stream.depth, 640,480, rs.format.z16, 30)
         self.config.enable_stream(rs.stream.color, 1920, 1080, rs.format.rgb8, 30)
+        # self.config.enable_stream(rs.stream.depth, 640,480, rs.format.z16, 30)
+        # self.config.enable_stream(rs.stream.color, 1280,720, rs.format.rgb8, 30)
 
         # Start the stream
         self.profile = self.pipeline.start(self.config)

@@ -5,15 +5,20 @@ from pyrealsense import PyRealSenseCamera
 import matplotlib.pyplot as plt
 # from slam_config import ConfigParser
 from slam_common import save_poses, extract_trianglemesh
+import psutil
 
 depth_scale = 1000.0 # 1000.0
 depth_min = 0.1 # 0.1
 depth_max = 3.0 # 3.0
 odometry_distance_thr = 0.07 # 0.07
 trunc_voxel_multiplier = 8.0 # 8.0
-voxel_size = 0.002 # 0.001
+voxel_size = 0.01 # 0.001
 block_count = 40000 # 40000
 ray_cast = True # False
+est_point_count = 6000000
+
+vis = o3d.visualization.Visualizer()
+vis.create_window()
 
 def slam(depth_file_names, color_file_names, intrinsic):
     n_files = len(color_file_names)
@@ -69,13 +74,29 @@ def slam(depth_file_names, color_file_names, intrinsic):
         print('{:04d}/{:04d} slam takes {:.4}s'.format(i, n_files,
                                                        stop - start))
 
-    return model, model.voxel_grid, poses
+        if i % 10 == 0:
+            pcd = model.voxel_grid.extract_point_cloud(
+                3.0, est_point_count).to_legacy() #.to(o3d.core.Device('CPU:0'))
+
+            frustum = o3d.geometry.LineSet.create_camera_visualization(
+                color.columns, color.rows, intrinsic.numpy(),
+                np.linalg.inv(T_frame_to_model.cpu().numpy()), 0.2)
+            frustum.paint_uniform_color([0.961, 0.475, 0.000])
+
+            vis.add_geometry(pcd)
+            vis.add_geometry(frustum)
+
+            vis.poll_events()
+            vis.update_renderer()
+            time.sleep(0.5)
+
+    return model, model.voxel_grid, poses, color_ref
 
 if __name__ == '__main__':
     print(o3d.t.io.RealSenseSensor.list_devices())
     camera = PyRealSenseCamera()
     camera.capture()
-    time.sleep(2)
+    time.sleep(5)
     rgb = camera.get_color()[:, :, :3].astype(np.uint8)
     intrinsic_matrix = camera.get_camera_intrinsic()
     
@@ -102,10 +123,10 @@ if __name__ == '__main__':
     rgb_list = []
     depth_list = []
 
-    for i in range(300):
-        print('capture')
+    for i in range(500):
+    # print('capture')    
         camera.capture()
-        # time.sleep(0.5)
+        time.sleep(0.05)
         
         rgb_image = camera.get_color()
         depth_image = camera.get_depth()
@@ -119,8 +140,11 @@ if __name__ == '__main__':
         depth_list.append(depth_image)
         # time.sleep(0.5)
     
-    model, volume, poses = slam(depth_file_names=depth_list, color_file_names=rgb_list, intrinsic=camera_intrinsics)
-    # pcd = model.extract_pointcloud(3.0).to_legacy()
+        if i % 10 == 0:
+            print( "Index : {0} || currnet system memory ==> {1}".format(i, psutil.virtual_memory().used / 2 ** 30))
+        i +=1
+    model, volume, poses, color = slam(depth_file_names=depth_list, color_file_names=rgb_list, intrinsic=camera_intrinsics)
+
     pcd = model.voxel_grid.extract_point_cloud(
                     3.0, 6000000).to_legacy()
     print(pcd)
