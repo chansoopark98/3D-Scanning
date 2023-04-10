@@ -57,7 +57,7 @@ def full_registration(pcds, max_correspondence_distance_coarse, max_corresponden
             print('target id:', target_id)
 
             init_trans = np.identity(4)
-            transformation_icp, information_icp = pairwise_registration(pcds_down[source_id], pcds_down[target_id],
+            transformation_icp, information_icp = pairwise_registration(pcds[source_id], pcds[target_id],
                                                                         init_trans)
             print("Build o3d.pipelines.registration.PoseGraph")
             if target_id == source_id + 1:  # odometry case
@@ -82,7 +82,7 @@ def full_registration(pcds, max_correspondence_distance_coarse, max_corresponden
                                                              uncertain=True))
     # Loop closure
     init_trans = np.identity(4)
-    transformation_icp, information_icp = pairwise_registration(pcds_down[n_pcds-1], pcds_down[0],
+    transformation_icp, information_icp = pairwise_registration(pcds[n_pcds-1], pcds[0],
                                                                 init_trans)
     pose_graph.edges.append(
         o3d.pipelines.registration.PoseGraphEdge(n_pcds-1,

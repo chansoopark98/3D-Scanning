@@ -9,8 +9,9 @@ from modern_robotics import *
 
 # test
 voxel_size = 0.005
-icp_distance = voxel_size * 100
-color_icp_distance = voxel_size * 50
+ransac_distance_threshold = voxel_size * 1.5
+icp_distance = voxel_size * 20
+color_icp_distance = voxel_size 
 
 def cal_angle(pl_norm, R_dir):
     angle_in_radians = \
@@ -22,8 +23,8 @@ def cal_angle(pl_norm, R_dir):
 
 def preprocess_point_cloud(pcd, voxel_size):
     # print(":: Downsample with a voxel size %.3f." % voxel_size)
-    # pcd_down = pcd.voxel_down_sample(voxel_size)
-    pcd_down = pcd
+    pcd_down = pcd.voxel_down_sample(voxel_size)
+    # pcd_down = pcd
 
     radius_normal = 0.1
     # print(":: Estimate normal with search radius %.3f." % radius_normal)
@@ -39,7 +40,7 @@ def preprocess_point_cloud(pcd, voxel_size):
 
 def execute_global_registration(source_down, target_down, source_fpfh,
                                 target_fpfh, voxel_size):
-    distance_threshold = voxel_size * 15
+    
     # print(":: RANSAC registration on downsampled point clouds.")
     # print("   Since the downsampling voxel size is %.3f," % voxel_size)
     # print("   we use a liberal distance threshold %.3f." % distance_threshold)
@@ -47,13 +48,13 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     """Original RANSAC"""
     result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
         source_down, target_down, source_fpfh, target_fpfh, True,
-        distance_threshold,
+        ransac_distance_threshold,
         o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
         3, [
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(
                 0.9),
             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
-                distance_threshold)
+                ransac_distance_threshold)
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
     
     """Test RANSAC"""
@@ -67,14 +68,6 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     
     return result
 
-def draw_registration_result(source, target, transformation):
-    source_temp = copy.deepcopy(source)
-    target_temp = copy.deepcopy(target)
-    # source_temp.paint_uniform_color([1, 0.706, 0])
-    # target_temp.paint_uniform_color([0, 0.651, 0.929])
-    source_temp.transform(transformation)
-    o3d.visualization.draw_geometries([source_temp, target_temp],
-                                      )
     
 def registerLocalCloud(target, source):
         source_temp = copy.deepcopy(source)
@@ -102,28 +95,19 @@ def registerLocalCloud(target, source):
 
         p2l_init_trans_guess = result_icp_p2l.transformation
 
-        result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp, color_icp_distance,
-                p2l_init_trans_guess,  o3d.pipelines.registration.TransformationEstimationPointToPlane(),
-                )
-
-        print("Color ICP Result")
-        # draw_registration_result(source_temp, target_temp, result_icp.transformation)
-
-        tf = result_icp.transformation
-        R = tf[:3,:3]  # rotation matrix
-        so3mat = MatrixLog3(R)
-        omg = so3ToVec(so3mat)
+        # Second Plane
+        # result_icp = o3d.pipelines.registration.registration_icp(source_temp, target_temp,
+        #                                                          color_icp_distance,
+        #                                                          p2l_init_trans_guess,
+        #                                                          o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+        #                                                          )
         
-        trans_tol= 0.5  # transformation tolerance
-        
-        print('tf', tf)
-        print('icp fitness {0}'.format(result_icp.fitness))
-        if ( tf[0,3] > trans_tol or tf[0,3] < -trans_tol or \
-             tf[1,3] > trans_tol or tf[1,3] < -trans_tol or \
-             tf[2,3] > trans_tol or tf[2,3] < -trans_tol ):
-            print('bad result')
-            print('icp fitness {0}'.format(result_icp.fitness))
-            return np.identity(4)
+        # COLOR ICP
+        result_icp = o3d.pipelines.registration.registration_colored_icp(source_temp,
+                                                                         target_temp, color_icp_distance,
+                                                                         p2l_init_trans_guess,
+                                                                         o3d.pipelines.registration.TransformationEstimationForColoredICP(),
+                                                                         )
 
         return result_icp.transformation
 
