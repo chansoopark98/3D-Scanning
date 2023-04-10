@@ -12,7 +12,7 @@ depth_min = 0.1 # 0.1
 depth_max = 3.0 # 3.0
 odometry_distance_thr = 0.07 # 0.07
 trunc_voxel_multiplier = 8.0 # 8.0
-voxel_size = 0.01 # 0.001
+voxel_size = 0.0058 # 0.001
 block_count = 40000 # 40000
 ray_cast = True # False
 est_point_count = 6000000
@@ -34,13 +34,15 @@ def slam(depth_file_names, color_file_names, intrinsic):
     print(depth_ref.rows, 'rows')
     print(depth_ref.columns, 'columns')
 
-    input_frame = o3d.t.pipelines.slam.Frame(depth_ref.columns, depth_ref.rows, 
-                                             intrinsic, device)
-    raycast_frame = o3d.t.pipelines.slam.Frame(depth_ref.columns, depth_ref.rows, intrinsic,device)
+    # input_frame = o3d.t.pipelines.slam.Frame(depth_ref.columns, depth_ref.rows, intrinsic, device)
+    # raycast_frame = o3d.t.pipelines.slam.Frame(depth_ref.columns, depth_ref.rows, intrinsic,device)
+
+    input_frame = o3d.t.pipelines.slam.Frame(depth_ref.rows, depth_ref.columns, intrinsic, device)
+    raycast_frame = o3d.t.pipelines.slam.Frame(depth_ref.rows, depth_ref.columns, intrinsic,device)
 
     input_frame.set_data_from_image('depth', depth_ref)
     input_frame.set_data_from_image('color', color_ref)
-
+    
     raycast_frame.set_data_from_image('depth', depth_ref)
     raycast_frame.set_data_from_image('color', color_ref)
 
@@ -96,7 +98,8 @@ if __name__ == '__main__':
     print(o3d.t.io.RealSenseSensor.list_devices())
     camera = PyRealSenseCamera()
     camera.capture()
-    time.sleep(5)
+    print('depth scale =', camera.get_depth_scale())
+    time.sleep(3)
     rgb = camera.get_color()[:, :, :3].astype(np.uint8)
     intrinsic_matrix = camera.get_camera_intrinsic()
     
@@ -123,17 +126,26 @@ if __name__ == '__main__':
     rgb_list = []
     depth_list = []
 
-    for i in range(500):
+    for i in range(300):
     # print('capture')    
         camera.capture()
-        time.sleep(0.05)
+        # time.sleep(0.05)
         
         rgb_image = camera.get_color()
         depth_image = camera.get_depth()
 
         rgb_image = rgb_image.astype('float32') / 255.
         depth_image = depth_image.astype('float32')
+
+        # plt.imshow(rgb_image)
+        # plt.show()
+        # plt.imshow(depth_image)
+        # plt.show()
+
+        # depth_image = np.where(depth_image>=1000., 0., depth_image)
+        # expand_depth = np.expand_dims(depth_image, axis=-1)
         
+        # rgb_image = np.where(expand_depth==0., 0., rgb_image) 
 
 
         rgb_list.append(rgb_image)

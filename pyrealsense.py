@@ -82,6 +82,9 @@ class PyRealSenseCamera(object):
 
         self.capture()
 
+    def get_depth_scale(self):
+        return self.depth_scale
+
     def get_profile(self):
         color_profiles, depth_profiles = get_profiles()
         print('Using the default profiles: \n  color:{}, depth:{}'.format(
